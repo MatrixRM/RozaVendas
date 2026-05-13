@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-4">
+    <h2 class="text-2xl font-bold text-center">Configurações</h2>
+
+    <!-- Enviar Novidades -->
+    <div class="card bg-gradient-to-r from-green-50 to-green-100 border-green-200">
+        <div class="flex items-center gap-3 mb-3">
+            <span class="text-2xl">📢</span>
+            <div>
+                <p class="font-bold text-green-800">Enviar Novidades</p>
+                <p class="text-xs text-green-600">Mande promoções para todos os clientes</p>
+            </div>
+        </div>
+        
+        <!-- Botão Envio Aleatório -->
+        <form method="post" action="{% url 'random_promotion' %}" class="mb-3">
+            {% csrf_token %}
+            <button type="submit" class="w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2">
+                🎲 Enviar Mensagem Aleatória
+            </button>
+        </form>
+        
+        <hr class="my-3 border-green-200">
+        
+        <!-- Ou digitar nova -->
+        <p class="text-sm text-green-700 font-medium mb-2">Ou digite sua própria mensagem:</p>
+        <form method="post" action="{% url 'send_promotion' %}" class="space-y-2">
+            {% csrf_token %}
+            <textarea name="message" rows="2" class="input" placeholder="Digite sua mensagem..."></textarea>
+            <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-xl font-bold">
+                📤 Enviar Mensagem Personalizada
+            </button>
+        </form>
+    </div>
+
+    <!-- Modelos de Mensagem -->
+    <div class="card">
+        <h3 class="font-bold mb-3">💡 Mensagens Prontas</h3>
+        <div class="space-y-2">
+            <button onclick="copyMessage('Olá! Chegaram novas peças lindas na nossa loja. Venha conferir!')" 
+                    class="w-full text-left p-2 text-sm bg-gray-50 hover:bg-gray-100 rounded-lg transition">
+                "Olá! Chegaram novas peças lindas na nossa loja..."
+            </button>
+            <button onclick="copyMessage('Olá! Temos novidades super bonitas esperando por você. Que tal dar uma passadinha?')" 
+                    class="w-full text-left p-2 text-sm bg-gray-50 hover:bg-gray-100 rounded-lg transition">
+                "Olá! Temos novidades super bonitas esperando..."
+            </button>
+            <button onclick="copyMessage('Olá! Novas peças chegaram! Venha ver as tendências da temporada.')" 
+                    class="w-full text-left p-2 text-sm bg-gray-50 hover:bg-gray-100 rounded-lg transition">
+                "Olá! Novas peças chegaram! Venha ver as tendências..."
+            </button>
+            <button onclick="copyMessage('Olá! Sua cliente VIP tem novidades imperdíveis. Venha ver!')" 
+                    class="w-full text-left p-2 text-sm bg-gray-50 hover:bg-gray-100 rounded-lg transition">
+                "Olá! Sua cliente VIP tem novidades imperdíveis..."
+            </button>
+            <button onclick="copyMessage('Olá! Novas peças chegaram para renovar seu guarda-roupa. Estamos te esperando!')" 
+                    class="w-full text-left p-2 text-sm bg-gray-50 hover:bg-gray-100 rounded-lg transition">
+                "Olá! Novas peças chegaram para renovar..."
+            </button>
+        </div>
+    </div>
+
+    <form method="post" class="card space-y-4">
+        {% csrf_token %}
+        
+        <div class="p-4 bg-blue-50 rounded-xl">
+            <div class="flex items-center gap-3 mb-3">
+                <span class="text-2xl">💰</span>
+                <div>
+                    <p class="font-bold text-blue-800">Comissão</p>
+                    <p class="text-xs text-blue-600">Porcentagem sobre as vendas</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <input type="number" name="commission_rate" value="{{ commission }}" 
+                       class="input text-xl font-bold text-center" style="width: 80px;" step="0.1">
+                <span class="text-xl font-bold text-blue-800">%</span>
+            </div>
+        </div>
+
+        <div class="p-4 bg-purple-50 rounded-xl">
+            <div class="flex items-center gap-3 mb-3">
+                <span class="text-2xl">📱</span>
+                <div>
+                    <p class="font-bold text-purple-800">Chave PIX</p>
+                    <p class="text-xs text-purple-600">Para enviar aos clientes na cobrança</p>
+                </div>
+            </div>
+            <input type="text" name="pix_key" value="{{ pix_key }}" 
+                   class="input" placeholder="CPF, CNPJ, telefone, email ou chave aleatória">
+        </div>
+
+        <div class="p-4 bg-orange-50 rounded-xl">
+            <div class="flex items-center gap-3 mb-3">
+                <span class="text-2xl">⏰</span>
+                <div>
+                    <p class="font-bold text-orange-800">Dias para Atraso</p>
+                    <p class="text-xs text-orange-600">Vendas pendentes become "atrasado" após este número de dias</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <input type="number" name="overdue_days" value="{{ overdue_days }}" 
+                       class="input text-xl font-bold text-center" style="width: 80px;" min="1" max="90">
+                <span class="text-xl font-bold text-orange-800">dias</span>
+            </div>
+        </div>
+
+        <button type="submit" class="w-full btn-primary py-3 text-lg">
+            💾 Salvar Configurações
+        </button>
+    </form>
+
+    <div class="card bg-gray-50">
+        <div class="flex items-center gap-2 mb-4">
+            <span class="text-xl">ℹ️</span>
+            <h3 class="font-bold">Informações</h3>
+        </div>
+        <div class="space-y-3 text-sm">
+            <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                <span class="text-gray-500">Versão do sistema</span>
+                <span class="font-bold">1.0.0</span>
+            </div>
+            <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                <span class="text-gray-500">Comissão atual</span>
+                <span class="font-bold text-blue-600">{{ commission }}%</span>
+            </div>
+            <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                <span class="text-gray-500">Dias para atraso</span>
+                <span class="font-bold text-orange-600">{{ overdue_days }} dias</span>
+            </div>
+            <div class="flex justify-between items-center py-2">
+                <span class="text-gray-500">Chave PIX</span>
+                <span class="font-bold text-purple-600">{{ pix_key|default:"Não configurada" }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyMessage(msg) {
+    const textarea = document.querySelector('textarea[name="message"]');
+    textarea.value = msg;
+    textarea.scrollIntoView({behavior: 'smooth'});
+    showToast('Mensagem copiada! Edite se quiser e envie.', 'success');
+}
+</script>
+{% endblock %}

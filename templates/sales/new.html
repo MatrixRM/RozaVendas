@@ -1,0 +1,360 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-4">
+    <h2 class="text-2xl font-bold text-center">🛒 Nova Venda</h2>
+
+    <!-- Busca de Cliente -->
+    <div class="card">
+        <div class="flex items-center gap-2 mb-3">
+            <span class="text-xl">👤</span>
+            <span class="font-bold text-gray-800">Buscar Cliente</span>
+        </div>
+        <input type="text" id="clientSearch" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" placeholder="🔍 Digite nome ou WhatsApp..." oninput="filterClients()">
+        <select id="clientSelect" class="w-full mt-2 bg-white border border-gray-200 text-gray-800 font-bold rounded-lg px-3 py-3" required onchange="selectClient()">
+            <option value="">Selecione um cliente...</option>
+            {% for client in clients %}
+            <option value="{{ client.id }}" data-name="{{ client.name|lower }}" data-whatsapp="{{ client.whatsapp }}" class="client-option">{{ client.name }} - {{ client.whatsapp }}</option>
+            {% endfor %}
+        </select>
+        {% if clients|length == 0 %}
+        <p class="text-center text-gray-400 mt-2 text-sm">Nenhum cliente cadastrado</p>
+        {% endif %}
+    </div>
+
+    <!-- Produto selecionado -->
+    <div id="selectedProduct" class="card bg-green-50 border-green-200 hidden">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">✓</div>
+                <div>
+                    <p id="selectedProductName" class="font-bold"></p>
+                    <p id="selectedProductPrice" class="text-green-600 font-bold"></p>
+                </div>
+            </div>
+            <button onclick="clearSelected()" class="text-gray-400 hover:text-gray-600">✕</button>
+        </div>
+    </div>
+
+    <!-- Lista de Produtos -->
+    <div class="card">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold text-lg">📦 Produtos</h3>
+            <span class="text-sm text-gray-500">{{ products|length }} itens</span>
+        </div>
+        
+        <input type="text" id="productSearch" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-3" placeholder="🔍 Buscar produto..." oninput="filterProducts()">
+        
+        <div class="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto" id="productsGrid">
+            {% for product in products %}
+            <button onclick="selectProduct('{{ product.id }}', '{{ product.name }}', {{ product.price }})" 
+                    class="product-btn border-2 border-gray-100 rounded-xl p-2 text-left hover:border-primary-500 hover:bg-primary-50 transition-all"
+                    data-name="{{ product.name|lower }}"
+                    data-category="{{ product.get_category_display|lower }}">
+                <p class="font-bold text-xs line-clamp-2">{{ product.name }}</p>
+                <p class="text-xs text-gray-400">{{ product.get_category_display }} • {{ product.size }}</p>
+                <div class="flex justify-between items-center mt-1">
+                    <span class="text-lg font-bold text-primary-600">R$ {{ product.price|floatformat:2 }}</span>
+                    {% if product.stock <= 5 %}
+                    <span class="text-xs bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded">⚠️{{ product.stock }}</span>
+                    {% endif %}
+                </div>
+            </button>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Carrinho -->
+    <div class="card bg-gray-50" id="cartSection" style="display:none;">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold text-lg">🛍️ Carrinho</h3>
+            <span id="cartCount" class="bg-primary-500 text-white text-xs px-2 py-1 rounded-full">0</span>
+        </div>
+        <div id="cartItems" class="space-y-2 max-h-32 overflow-y-auto mb-3"></div>
+        <div class="border-t-2 border-primary-500 pt-3 flex justify-between items-center">
+            <span class="font-bold text-lg">Total</span>
+            <span class="text-2xl font-bold text-primary-600" id="cartTotal">R$ 0,00</span>
+        </div>
+    </div>
+
+    <!-- Pagamento -->
+    <div class="card" id="paymentSection" style="display:none;">
+        <h3 class="font-bold text-lg mb-3">💰 Pagamento</h3>
+        
+        <div class="mb-4">
+            <p class="text-sm text-gray-500 mb-2">Forma de pagamento</p>
+            <div class="grid grid-cols-3 gap-2">
+                <button onclick="setPaymentType('cash')" class="payment-btn p-3 rounded-xl border-2 text-center font-bold" data-type="cash">💵 Dinheiro</button>
+                <button onclick="setPaymentType('pix')" class="payment-btn p-3 rounded-xl border-2 text-center font-bold" data-type="pix">📱 PIX</button>
+                <button onclick="setPaymentType('card')" class="payment-btn p-3 rounded-xl border-2 text-center font-bold" data-type="card">💳 Cartão</button>
+            </div>
+        </div>
+
+        <!-- Parcelas -->
+        <div id="installmentSection" class="mb-4 hidden">
+            <p class="text-sm text-gray-500 mb-2">Parcelas</p>
+            <div class="grid grid-cols-3 gap-2" id="installmentOptions">
+                <button onclick="setInstallment(1)" class="installment-btn p-2 rounded-lg border-2 text-center font-bold text-sm" data-installment="1">1x</button>
+                <button onclick="setInstallment(2)" class="installment-btn p-2 rounded-lg border-2 text-center font-bold text-sm" data-installment="2">2x</button>
+                <button onclick="setInstallment(3)" class="installment-btn p-2 rounded-lg border-2 text-center font-bold text-sm" data-installment="3">3x</button>
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <p class="text-sm text-gray-500 mb-2">Valor pago</p>
+            <input type="number" id="paidAmount" class="input text-lg py-3 text-center font-bold" placeholder="0,00" value="0" onchange="updatePayment()">
+            <div class="grid grid-cols-3 gap-2 mt-2">
+                <button onclick="setPaidAmount(0)" class="btn bg-red-100 text-red-700 hover:bg-red-200 py-2 rounded-lg font-medium text-sm">😴 Fiado</button>
+                <button onclick="setPaidAmount('half')" class="btn bg-yellow-100 text-yellow-700 hover:bg-yellow-200 py-2 rounded-lg font-medium text-sm">50%</button>
+                <button onclick="setPaidAmount('full')" class="btn bg-green-100 text-green-700 hover:bg-green-200 py-2 rounded-lg font-medium text-sm">✅ Total</button>
+            </div>
+        </div>
+
+        <div id="pendingInfo" class="p-3 bg-red-50 rounded-xl text-center hidden">
+            <p class="text-red-600 font-bold">Pendente: R$ <span id="pendingAmount">0,00</span></p>
+        </div>
+    </div>
+
+    <!-- Finalizar -->
+    <button id="finishBtn" onclick="finishSale()" class="w-full bg-primary-500 hover:bg-primary-600 text-white py-4 rounded-xl font-bold text-xl shadow-lg shadow-primary-500/25 hidden">
+        ✅ Finalizar Venda
+    </button>
+    
+    <!-- Botão WhatsApp após venda -->
+    <div id="whatsappSection" class="card bg-green-50 border-green-200 hidden">
+        <div class="text-center">
+            <p class="font-bold text-green-700 mb-3">Venda finalizada!</p>
+            <a id="whatsappBtn" href="#" target="_blank" class="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white py-3 px-6 rounded-xl font-bold">
+                📱 Enviar Recibo via WhatsApp
+            </a>
+            <button onclick="window.location.href='{% url 'sales_list' %}'" class="block w-full mt-3 text-gray-500 text-sm">
+                Agora não, continuar
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+let cart = [];
+let paymentType = 'cash';
+let installment = 1;
+let total = 0;
+let selectedProduct = null;
+
+function selectProduct(id, name, price) {
+    selectedProduct = {id, name, price, quantity: 1};
+    const existing = cart.find(p => p.id === id);
+    if (existing) {
+        existing.quantity++;
+        selectedProduct = null;
+    } else {
+        cart.push(selectedProduct);
+        selectedProduct = null;
+    }
+    updateCart();
+}
+
+function updateCart() {
+    const section = document.getElementById('cartSection');
+    const items = document.getElementById('cartItems');
+    const finish = document.getElementById('finishBtn');
+    const paymentSection = document.getElementById('paymentSection');
+    const cartCount = document.getElementById('cartCount');
+    
+    if (cart.length === 0) {
+        section.style.display = 'none';
+        finish.style.display = 'none';
+        paymentSection.style.display = 'none';
+        return;
+    }
+    
+    section.style.display = 'block';
+    finish.style.display = 'block';
+    paymentSection.style.display = 'block';
+    cartCount.textContent = cart.length;
+    
+    total = cart.reduce((sum, p) => sum + (p.price * p.quantity), 0);
+    
+    items.innerHTML = cart.map((p, idx) => `
+        <div class="flex items-center justify-between bg-white p-2 rounded-lg">
+            <div class="flex-1">
+                <p class="font-medium text-sm">${p.name}</p>
+                <p class="text-xs text-gray-500">R$ ${p.price.toFixed(2).replace('.', ',')} x${p.quantity}</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="updateQuantity(${idx}, -1)" class="w-7 h-7 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center">-</button>
+                <span class="font-bold w-6 text-center">${p.quantity}</span>
+                <button onclick="updateQuantity(${idx}, 1)" class="w-7 h-7 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center">+</button>
+            </div>
+            <span class="font-bold text-primary-600 ml-2">R$ ${(p.price * p.quantity).toFixed(2).replace('.', ',')}</span>
+            <button onclick="removeItem(${idx})" class="text-red-500 ml-2">🗑️</button>
+        </div>
+    `).join('');
+    
+    document.getElementById('cartTotal').textContent = 'R$ ' + total.toFixed(2).replace('.', ',');
+}
+
+function updateQuantity(idx, delta) {
+    cart[idx].quantity += delta;
+    if (cart[idx].quantity <= 0) {
+        cart.splice(idx, 1);
+    }
+    updateCart();
+}
+
+function removeItem(idx) {
+    cart.splice(idx, 1);
+    updateCart();
+}
+
+// Filter functions
+function filterClients() {
+    const search = document.getElementById('clientSearch').value.toLowerCase();
+    const options = document.querySelectorAll('.client-option');
+    const select = document.getElementById('clientSelect');
+    
+    options.forEach(opt => {
+        const name = opt.dataset.name || '';
+        const whatsapp = opt.dataset.whatsapp || '';
+        const match = name.includes(search) || whatsapp.includes(search);
+        opt.style.display = match ? '' : 'none';
+    });
+    
+    // Show first matching option
+    const visible = Array.from(options).find(o => o.style.display !== 'none');
+    if (visible && search.length > 0) {
+        select.value = visible.value;
+    }
+}
+
+function selectClient() {
+    const select = document.getElementById('clientSelect');
+    if (select.value) {
+        showToast('Cliente selecionado!', 'success');
+    }
+}
+
+function filterProducts() {
+    const search = document.getElementById('productSearch').value.toLowerCase();
+    const buttons = document.querySelectorAll('.product-btn');
+    
+    buttons.forEach(btn => {
+        const name = btn.dataset.name || '';
+        const category = btn.dataset.category || '';
+        const match = name.includes(search) || category.includes(search);
+        btn.style.display = match ? '' : 'none';
+    });
+    
+    // Show count
+    const visible = Array.from(buttons).filter(b => b.style.display !== 'none').length;
+    document.getElementById('productSearch').placeholder = `🔍 Buscar produto (${visible})...`;
+}
+
+function setPaymentType(type) {
+    paymentType = type;
+    installment = 1;
+    
+    document.querySelectorAll('.payment-btn').forEach(btn => {
+        const isSelected = btn.dataset.type === type;
+        btn.classList.toggle('border-primary-500', isSelected);
+        btn.classList.toggle('bg-primary-50', isSelected);
+        btn.classList.toggle('ring-2', isSelected);
+        btn.classList.toggle('ring-primary-500', isSelected);
+    });
+    
+    // Show/hide installment options for card or cash
+    const installSection = document.getElementById('installmentSection');
+    if (type === 'card' || type === 'cash') {
+        installSection.classList.remove('hidden');
+        setInstallment(1);
+    } else {
+        installSection.classList.add('hidden');
+        installment = 1;
+    }
+}
+
+function setInstallment(qty) {
+    installment = qty;
+    document.querySelectorAll('.installment-btn').forEach(btn => {
+        const isSelected = parseInt(btn.dataset.installment) === qty;
+        btn.classList.toggle('border-primary-500', isSelected);
+        btn.classList.toggle('bg-primary-50', isSelected);
+    });
+    
+    // Update paid amount based on total / installment
+    const paid = total / qty;
+    document.getElementById('paidAmount').value = paid.toFixed(2);
+    updatePayment();
+}
+
+function setPaidAmount(val) {
+    const input = document.getElementById('paidAmount');
+    if (val === 'half') input.value = (total / 2).toFixed(2);
+    else if (val === 'full') input.value = total.toFixed(2);
+    else input.value = val;
+    updatePayment();
+}
+
+function updatePayment() {
+    const paid = parseFloat(document.getElementById('paidAmount').value) || 0;
+    const pending = Math.max(0, total - paid);
+    document.getElementById('pendingInfo').classList.toggle('hidden', pending === 0);
+    document.getElementById('pendingAmount').textContent = pending.toFixed(2).replace('.', ',');
+}
+
+function finishSale() {
+    const btn = document.getElementById('finishBtn');
+    btn.disabled = true;
+    btn.innerHTML = '⏳ Processando...';
+    btn.classList.add('opacity-50');
+    
+    const clientId = document.getElementById('clientSelect').value;
+    
+    if (!clientId) {
+        btn.disabled = false;
+        btn.innerHTML = '✅ Finalizar Venda';
+        btn.classList.remove('opacity-50');
+        showToast('Selecione um cliente para continuar!', 'warning');
+        return;
+    }
+    
+    const paid = parseFloat(document.getElementById('paidAmount').value) || 0;
+    const paymentLabel = paymentType === 'cash' ? `Dinheiro ${installment}x` : 
+                         paymentType === 'card' ? `Cartão ${installment}x` : 'PIX';
+    
+    fetch('{% url "new_sale" %}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}'},
+        body: JSON.stringify({
+            client_id: clientId,
+            products: cart.map(p => ({id: p.id, name: p.name, price: p.price, cost: 0, quantity: p.quantity})),
+            payment_type: paymentLabel,
+            paid_amount: paid,
+            installment: installment
+        })
+    }).then(r => r.json()).then(data => {
+        if (data.success) {
+            showToast('Venda realizada com sucesso!', 'success');
+            
+            // Mostrar botão do WhatsApp
+            if (data.whatsapp_link) {
+                document.getElementById('finishBtn').classList.add('hidden');
+                const wsSection = document.getElementById('whatsappSection');
+                const wsBtn = document.getElementById('whatsappBtn');
+                wsSection.classList.remove('hidden');
+                wsBtn.href = data.whatsapp_link;
+            } else {
+                setTimeout(() => window.location.href = '{% url "sales_list" %}', 1500);
+            }
+        } else {
+            showToast(data.error || 'Erro ao criar venda', 'error');
+            btn.disabled = false;
+            btn.innerHTML = '✅ Finalizar Venda';
+            btn.classList.remove('opacity-50');
+        }
+    });
+}
+
+setPaymentType('cash');
+</script>
+{% endblock %}

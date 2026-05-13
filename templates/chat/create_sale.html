@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-4">
+    <h2 class="text-2xl font-bold text-center">💰 Criar Venda</h2>
+    
+    <div class="card bg-blue-50">
+        <p class="font-bold">{{ client.name }}</p>
+        <p class="text-sm text-gray-500">{{ client.phone }}</p>
+    </div>
+
+    <form id="saleForm" class="card space-y-4">
+        {% csrf_token %}
+        
+        <input type="hidden" name="client_id" value="{{ client.id }}">
+        
+        <div>
+            <label class="label">Produto</label>
+            <select name="product_id" class="input" required>
+                <option value="">Selecione...</option>
+                {% for product in products %}
+                <option value="{{ product.id }}">{{ product.name }} - R$ {{ product.price|floatformat:2 }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div>
+            <label class="label">Quantidade</label>
+            <input type="number" name="quantity" value="1" min="1" class="input" required>
+        </div>
+        
+        <div>
+            <label class="label">Forma de pagamento</label>
+            <select name="payment_type" class="input">
+                <option value="pix">PIX</option>
+                <option value="cash">Dinheiro</option>
+                <option value="card">Cartão</option>
+            </select>
+        </div>
+        
+        <div>
+            <label class="label">Valor pago</label>
+            <input type="number" name="paid_amount" value="0" step="0.01" class="input">
+            <div class="grid grid-cols-3 gap-2 mt-2">
+                <button type="button" onclick="setPaid(0)" class="btn bg-red-100 text-red-700 py-1">Fiado</button>
+                <button type="button" onclick="setPaid('half')" class="btn bg-yellow-100 text-yellow-700 py-1">50%</button>
+                <button type="button" onclick="setPaid('full')" class="btn bg-green-100 text-green-700 py-1">Total</button>
+            </div>
+        </div>
+
+        <button type="submit" class="w-full btn-primary py-3">
+            ✅ Registrar Venda
+        </button>
+    </form>
+
+    <a href="{% url 'chat_detail' conversation.id %}" class="block text-center text-gray-500 py-2">
+        ← Voltar ao Chat
+    </a>
+</div>
+
+<script>
+let total = 0;
+
+document.querySelector('select[name="product_id"]').addEventListener('change', function() {
+    const option = this.options[this.selectedIndex];
+    if (option.value) {
+        // Get price from option text
+        const match = option.text.match(/R\$ ([\d,]+)/);
+        if (match) {
+            total = parseFloat(match[1].replace(',', '.'));
+        }
+    }
+});
+
+function setPaid(val) {
+    const input = document.querySelector('input[name="paid_amount"]');
+    const qty = parseInt(document.querySelector('input[name="quantity"]').value) || 1;
+    const product = document.querySelector('select[name="product_id"]');
+    
+    if (product.value) {
+        const option = product.options[product.selectedIndex];
+        const match = option.text.match(/R\$ ([\d,]+)/);
+        if (match) {
+            total = parseFloat(match[1].replace(',', '.')) * qty;
+        }
+    }
+    
+    if (val === 'half') input.value = (total / 2).toFixed(2);
+    else if (val === 'full') input.value = total.toFixed(2);
+    else input.value = '0';
+}
+
+document.getElementById('saleForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    fetch('{% url "chat_create_sale" conversation.id %}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': '{{ csrf_token }}'},
+        body: new FormData(this)
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert('Venda registrada com sucesso! ✅');
+            window.location.href = '{% url "chat_detail" conversation.id %}';
+        } else {
+            alert('Erro: ' + (data.error || 'Erro desconhecido'));
+        }
+    });
+});
+</script>
+{% endblock %}

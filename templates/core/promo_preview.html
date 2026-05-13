@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-4">
+    <h2 class="text-2xl font-bold text-center">📢 Enviar Novidades</h2>
+
+    <div class="card bg-green-50 border-green-200">
+        <p class="font-bold text-green-800 mb-2">Mensagem:</p>
+        <p class="text-sm bg-white p-3 rounded-lg">{{ message }}</p>
+    </div>
+
+    <p class="text-gray-600 text-center">Clique no WhatsApp de cada cliente para enviar:</p>
+
+    <div class="space-y-2">
+        {% for item in links %}
+        <div class="card flex items-center justify-between">
+            <div>
+                <p class="font-bold">{{ item.name }}</p>
+                <p class="text-xs text-gray-500">{{ item.whatsapp }}</p>
+            </div>
+            <a href="{{ item.link }}" target="_blank" 
+               class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2">
+                📱 Abrir WhatsApp
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+
+    <a href="{% url 'settings' %}" class="block text-center text-gray-500 py-2">
+        ← Voltar às Configurações
+    </a>
+</div>
+{% endblock %}

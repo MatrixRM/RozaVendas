@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-4">
+    <h2 class="text-2xl font-bold text-center">📊 Relatórios</h2>
+
+    <div class="card">
+        <h3 class="font-bold text-lg mb-4">📅 Este mês</h3>
+        
+        <div class="grid grid-cols-2 gap-4">
+            <div class="bg-gray-50 rounded-xl p-3 text-center">
+                <p class="text-sm text-gray-500">Vendas</p>
+                <p class="text-2xl font-bold text-gray-800">R$ {{ month.sales|floatformat:2 }}</p>
+                <p class="text-xs text-gray-400">{{ month.count }} vendas</p>
+            </div>
+            
+            <div class="bg-green-50 rounded-xl p-3 text-center">
+                <p class="text-sm text-green-600">Lucro líquido</p>
+                <p class="text-2xl font-bold text-green-600">R$ {{ month.profit|floatformat:2 }}</p>
+            </div>
+            
+            <div class="bg-orange-50 rounded-xl p-3 text-center">
+                <p class="text-sm text-orange-600">Comissão (35%)</p>
+                <p class="text-xl font-bold text-orange-600">R$ {{ month.commission|floatformat:2 }}</p>
+            </div>
+            
+            <div class="bg-blue-50 rounded-xl p-3 text-center">
+                <p class="text-sm text-blue-600">Média por venda</p>
+                <p class="text-xl font-bold text-blue-600">
+                    {% if month.count > 0 %}
+                    R$ {{ month.average|floatformat:2 }}
+                    {% else %}
+                    R$ 0,00
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3 class="font-bold text-lg mb-3">📈 Resumo</h3>
+        <div class="space-y-2">
+            <div class="flex justify-between py-2 border-b">
+                <span class="text-gray-600">Total vendido</span>
+                <span class="font-bold">R$ {{ month.sales|floatformat:2 }}</span>
+            </div>
+            <div class="flex justify-between py-2 border-b">
+                <span class="text-gray-600">Lucro líquido</span>
+                <span class="font-bold text-green-600">R$ {{ month.profit|floatformat:2 }}</span>
+            </div>
+            <div class="flex justify-between py-2 border-b">
+                <span class="text-gray-600">Comissão a pagar</span>
+                <span class="font-bold text-orange-600">R$ {{ month.commission|floatformat:2 }}</span>
+            </div>
+            <div class="flex justify-between py-2">
+                <span class="text-gray-600">Total de vendas</span>
+                <span class="font-bold">{{ month.count }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

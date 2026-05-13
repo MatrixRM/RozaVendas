@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-4">
+    <h2 class="text-2xl font-bold text-center">Nova Conversa</h2>
+
+    <form method="post" class="card space-y-4">
+        {% csrf_token %}
+        
+        <div>
+            <label class="label">Telefone do Cliente</label>
+            <input type="text" name="phone" class="input" placeholder="5599999999999" required>
+            <p class="text-xs text-gray-500 mt-1">Digite o número com DDI (ex: 5599...)</p>
+        </div>
+
+        <div>
+            <label class="label">Nome do Cliente (opcional)</label>
+            <input type="text" name="client_name" class="input" placeholder="Nome do cliente">
+        </div>
+
+        <button type="submit" class="w-full btn-primary py-3 text-lg">
+            💬 Iniciar Conversa
+        </button>
+    </form>
+
+    <a href="{% url 'chat_list' %}" class="block text-center text-gray-500 py-2">
+        ← Voltar
+    </a>
+</div>
+{% endblock %}

@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-4">
+    <div class="flex justify-between items-center">
+        <h2 class="text-xl font-bold">Clientes</h2>
+        <a href="{% url 'client_new' %}" class="bg-primary-500 text-white px-4 py-2 rounded-xl font-medium">+ Novo</a>
+    </div>
+
+    <form method="get" class="flex gap-2">
+        <input type="text" name="search" placeholder="Buscar..." value="{{ search }}" class="input flex-1">
+        <button type="submit" class="btn btn-secondary">🔍</button>
+    </form>
+
+    {% if total_debt > 0 %}
+    <div class="card bg-orange-50 border-orange-200 flex justify-between items-center">
+        <div>
+            <p class="text-orange-600 font-medium">Total a receber</p>
+            <p class="text-orange-700 text-xl font-bold">R$ {{ total_debt|floatformat:2 }}</p>
+        </div>
+        <button onclick="syncDebts()" class="btn bg-blue-500 text-white text-sm">🔄 Sincronizar</button>
+    </div>
+    {% endif %}
+
+    <div class="space-y-2">
+        {% for client in clients %}
+        <a href="{% url 'client_detail' client.id %}" class="card flex items-center gap-3">
+            <div class="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center">
+                <span class="text-primary-600 font-bold text-lg">{{ client.name.0 }}</span>
+            </div>
+            <div class="flex-1">
+                <p class="font-medium">{{ client.name }}</p>
+                <p class="text-sm text-gray-500">{{ client.whatsapp }}</p>
+            </div>
+            {% if client.total_due > 0 %}
+            <div class="text-right">
+                <span class="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full">Devendo</span>
+                <p class="text-sm font-bold text-red-600">R$ {{ client.total_due|floatformat:2 }}</p>
+            </div>
+            {% endif %}
+        </a>
+        {% empty %}
+        <p class="text-center text-gray-500 py-8">Nenhum cliente encontrado</p>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+function syncDebts() {
+    fetch('{% url "sync_debts" %}', {
+        method: 'POST',
+        headers: {'X-CSRFToken': '{{ csrf_token }}'}
+    })
+    .then(r => r.json())
+    .then(data => {
+        alert(data.message);
+        location.reload();
+    });
+}
+</script>
+{% endblock %}

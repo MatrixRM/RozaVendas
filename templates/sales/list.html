@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-4">
+    <div class="flex justify-between items-center">
+        <h2 class="text-xl font-bold">Vendas</h2>
+        <a href="{% url 'new_sale' %}" class="bg-primary-500 text-white px-4 py-2 rounded-xl font-medium">+ Nova</a>
+    </div>
+
+    <!-- Filtros -->
+    <div class="flex gap-2 overflow-x-auto pb-2">
+        <a href="?status=all" class="px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap {% if status_filter == 'all' or not status_filter %}bg-primary-500 text-white{% else %}bg-gray-100 text-gray-600{% endif %}">
+            Todas
+        </a>
+        <a href="?status=paid" class="px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap {% if status_filter == 'paid' %}bg-green-500 text-white{% else %}bg-gray-100 text-gray-600{% endif %}">
+            Pago
+        </a>
+        <a href="?status=pending" class="px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap {% if status_filter == 'pending' %}bg-yellow-500 text-white{% else %}bg-gray-100 text-gray-600{% endif %}">
+            Pendente
+        </a>
+        <a href="?status=canceled" class="px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap {% if status_filter == 'canceled' %}bg-red-500 text-white{% else %}bg-gray-100 text-gray-600{% endif %}">
+            Canceladas
+        </a>
+    </div>
+
+    <!-- Totais -->
+    <div class="grid grid-cols-2 gap-3">
+        <div class="card bg-gradient-to-br from-primary-50 to-primary-100 border-primary-200">
+            <p class="text-xs text-primary-600 mb-1">📅 Hoje</p>
+            <p class="text-2xl font-bold text-primary-700">R$ {{ total_today|floatformat:2 }}</p>
+        </div>
+        <div class="card bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+            <p class="text-xs text-blue-600 mb-1">📆 Mês</p>
+            <p class="text-2xl font-bold text-blue-700">R$ {{ total_month|floatformat:2 }}</p>
+        </div>
+    </div>
+
+    {% if status_filter != 'canceled' and total_pending > 0 %}
+    <div class="card bg-red-50 border-red-200">
+        <div class="flex items-center gap-3">
+            <span class="text-2xl">⏳</span>
+            <div>
+                <p class="font-bold text-red-700">{{ pending_count }} venda{{ pending_count|pluralize:"s" }} pendente{{ pending_count|pluralize:"s" }}</p>
+                <p class="text-red-600 font-bold">R$ {{ total_pending|floatformat:2 }}</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Lista de Vendas -->
+    <div class="space-y-2">
+        {% for sale in sales %}
+        <div class="card flex items-center gap-3 {% if sale.status == 'canceled' %}bg-gray-50 border-gray-200{% endif %}">
+            <!-- Status Icon -->
+            <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0
+                {% if sale.status == 'paid' %}bg-green-100 text-green-600
+                {% elif sale.status == 'partial' %}bg-yellow-100 text-yellow-600
+                {% elif sale.status == 'canceled' %}bg-gray-200 text-gray-500
+                {% else %}bg-red-100 text-red-600{% endif %}">
+                {% if sale.status == 'paid' %}✓
+                {% elif sale.status == 'partial' %}~
+                {% elif sale.status == 'canceled' %}✕
+                {% else %}!
+                {% endif %}
+            </div>
+            
+            <!-- Info -->
+            <a href="{% url 'sale_detail' sale.id %}" class="flex-1 min-w-0">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="font-bold truncate">{{ sale.client.name|default:"Consumidor" }}</p>
+                        <p class="text-xs text-gray-500">{{ sale.created_at|date:"d/m" }} às {{ sale.created_at|date:"H:i" }}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-lg font-bold">R$ {{ sale.total|floatformat:2 }}</p>
+                        <span class="text-xs px-2 py-0.5 rounded-full font-medium
+                            {% if sale.status == 'paid' %}bg-green-100 text-green-700
+                            {% elif sale.status == 'partial' %}bg-yellow-100 text-yellow-700
+                            {% elif sale.status == 'canceled' %}bg-gray-200 text-gray-500
+                            {% else %}bg-red-100 text-red-700{% endif %}">
+                            {% if sale.status == 'paid' %}PAGO
+                            {% elif sale.status == 'partial' %}PARCIAL
+                            {% elif sale.status == 'canceled' %}CANCELADO
+                            {% else %}FIADO{% endif %}
+                        </span>
+                    </div>
+                </div>
+            </a>
+            
+            {% if sale.status != 'canceled' %}
+            <form method="POST" action="{% url 'cancel_sale' sale.id %}" onsubmit="return confirm('Cancelar venda?')" class="flex-shrink-0">
+                {% csrf_token %}
+                <button type="submit" class="w-8 h-8 rounded-full bg-red-50 hover:bg-red-100 text-red-400 hover:text-red-600 flex items-center justify-center transition">
+                    ✕
+                </button>
+            </form>
+            {% endif %}
+        </div>
+        {% empty %}
+        <div class="card text-center py-8">
+            <p class="text-4xl mb-2">🛒</p>
+            <p class="text-gray-500">Nenhuma venda encontrada</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

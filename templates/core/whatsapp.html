@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-4">
+    <h2 class="text-2xl font-bold text-center">💬 WhatsApp</h2>
+
+    <div class="card">
+        <h3 class="font-bold text-lg mb-3">📱 Clientes devendo</h3>
+        <div class="space-y-2">
+            {% for debtor in debtors|slice:":5" %}
+            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                <div>
+                    <p class="font-bold">{{ debtor.name }}</p>
+                    <p class="text-sm text-gray-500">Devendo R$ {{ debtor.total_due|floatformat:2 }}</p>
+                </div>
+                <button onclick="sendMessage('{{ debtor.id }}')" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-xl font-bold text-sm">
+                    📱 Enviar
+                </button>
+            </div>
+            {% empty %}
+            <p class="text-gray-500 text-center py-4">🎉 Nenhum cliente devendo!</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<script>
+function sendMessage(clientId) {
+    fetch('/whatsapp/send/' + clientId, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': '{{ csrf_token }}'},
+        body: 'message_type=collection'
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.link) {
+            window.open(data.link, '_blank');
+        }
+    });
+}
+</script>
+{% endblock %}

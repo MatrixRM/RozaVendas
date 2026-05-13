@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-4">
+    <h2 class="text-2xl font-bold text-center">💰 Registrar Pagamento</h2>
+
+    <div class="card bg-gradient-to-r from-gray-50 to-gray-100">
+        <div class="flex justify-between items-center py-2 border-b border-gray-200">
+            <span class="text-gray-600 font-medium">Total da venda</span>
+            <span class="font-bold text-xl text-gray-800">R$ {{ sale.total|floatformat:2 }}</span>
+        </div>
+        <div class="flex justify-between items-center py-2 border-b border-gray-200">
+            <span class="text-gray-600 font-medium">Já pago</span>
+            <span class="font-bold text-green-600">R$ {{ sale.paid_amount|floatformat:2 }}</span>
+        </div>
+        <div class="flex justify-between items-center py-3 mt-2">
+            <span class="text-red-600 font-bold text-lg">Pendente</span>
+            <span class="text-red-700 font-bold text-2xl">R$ {{ sale.pending_amount|floatformat:2 }}</span>
+        </div>
+    </div>
+
+    <form method="post" class="card space-y-4" onsubmit="return confirmPayment(event)">
+        {% csrf_token %}
+        
+        <div>
+            <label class="label text-lg font-medium">Valor do pagamento</label>
+            <div class="flex gap-2">
+                <input type="number" name="amount" step="0.01" id="amountInput" class="input text-xl py-4 text-center font-bold flex-1" placeholder="0,00" required>
+                <button type="button" onclick="setFullAmount()" class="bg-primary-500 hover:bg-primary-600 text-white px-4 rounded-xl font-bold whitespace-nowrap">
+                    ✅ Total
+                </button>
+            </div>
+            <p class="text-xs text-gray-400 mt-2">Clique em "Total" para pagar o valor pendente</p>
+        </div>
+
+        <script>
+        const pendingAmount = {{ pending_amount|stringformat:"f" }};
+        
+        function setFullAmount() {
+            document.getElementById('amountInput').value = pendingAmount;
+        }
+        
+        function confirmPayment(e) {
+            const amount = parseFloat(document.getElementById('amountInput').value) || 0;
+            
+            if (amount <= 0) {
+                alert('⚠️ Digite um valor maior que zero!');
+                e.preventDefault();
+                return false;
+            }
+            
+            if (amount > pendingAmount) {
+                alert('⚠️ O valor não pode ser maior que o pendente (R$ ' + pendingAmount.toFixed(2).replace('.', ',') + ')');
+                e.preventDefault();
+                return false;
+            }
+            
+            const confirmMsg = '💰 Confirmar pagamento de R$ ' + amount.toFixed(2).replace('.', ',') + '?\n\nValor pendente: R$ ' + pendingAmount.toFixed(2).replace('.', ',');
+            
+            if (!confirm(confirmMsg)) {
+                e.preventDefault();
+                return false;
+            }
+            
+            return true;
+        }
+        </script>
+
+        <div class="flex gap-3 mt-6">
+            <a href="{% url 'sale_detail' sale.id %}" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-4 rounded-xl font-bold text-lg text-center transition-all">
+                ⬅️ Cancelar
+            </a>
+            <button type="submit" class="flex-1 bg-green-500 hover:bg-green-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg shadow-green-500/25 transition-all">
+                ✅ Confirmar
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-4">
+    <h2 class="text-xl font-bold">Clientes Devendo</h2>
+
+    <div class="card bg-red-50 border-red-200">
+        <p class="text-red-600 font-medium">Total a receber</p>
+        <p class="text-red-700 text-2xl font-bold">R$ {{ total|floatformat:2 }}</p>
+    </div>
+
+    <div class="space-y-2">
+        {% for client in debtors %}
+        <a href="{% url 'client_detail' client.id %}" class="card flex items-center justify-between">
+            <div>
+                <p class="font-medium">{{ client.name }}</p>
+                <p class="text-sm text-gray-500">{{ client.whatsapp }}</p>
+            </div>
+            <div class="text-right">
+                <p class="font-bold text-red-600">R$ {{ client.total_due|floatformat:2 }}</p>
+                {% if client.last_purchase %}
+                <p class="text-xs text-gray-500">Última compra: {{ client.last_purchase|date:"d/m" }}</p>
+                {% endif %}
+            </div>
+        </a>
+        {% empty %}
+        <p class="text-center text-gray-500 py-8">Nenhum cliente devendo 🎉</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

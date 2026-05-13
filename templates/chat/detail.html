@@ -1,0 +1,171 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="flex flex-col h-[calc(100vh-140px)]">
+    <!-- Header -->
+    <div class="flex justify-between items-center pb-3 border-b">
+        <div>
+            <a href="{% url 'chat_list' %}" class="text-gray-500 text-sm">← Voltar</a>
+        </div>
+        <div class="text-center">
+            <h2 class="font-bold">{{ conversation.client.name|default:conversation.phone }}</h2>
+            <span class="text-xs text-green-500">● Online</span>
+        </div>
+        <div>
+            <button onclick="showActions()" class="bg-gray-100 p-2 rounded-lg">⋮</button>
+        </div>
+    </div>
+
+    <!-- Messages -->
+    <div id="messages" class="flex-1 overflow-y-auto space-y-3 p-3">
+        {% for msg in messages %}
+        <div class="flex {% if msg.role == 'user' %}justify-end{% else %}justify-start{% endif %}">
+            <div class="max-w-[85%] p-3 rounded-2xl 
+                {% if msg.role == 'user' %}bg-primary-500 text-white{% elif msg.role == 'system' %}bg-yellow-100 text-yellow-800 text-sm border border-yellow-300{% else %}bg-gray-100 text-gray-800{% endif %}
+                {% if msg.role == 'assistant' %}rounded-bl-md{% else %}rounded-br-md{% endif %}">
+                {% if msg.role == 'assistant' %}
+                <div class="flex items-start gap-2">
+                    <span class="text-lg">🤖</span>
+                    <div>
+                        <p class="text-sm whitespace-pre-wrap">{{ msg.content }}</p>
+                    </div>
+                </div>
+                {% else %}
+                <p class="text-sm whitespace-pre-wrap">{{ msg.content }}</p>
+                {% endif %}
+                <p class="text-xs opacity-60 mt-1">{{ msg.created_at|date:"H:i" }}</p>
+            </div>
+        </div>
+        {% endfor %}
+        
+        <!-- Typing indicator -->
+        <div id="typing" class="hidden flex justify-start">
+            <div class="bg-gray-100 p-3 rounded-2xl rounded-bl-md">
+                <div class="flex gap-1">
+                    <span class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></span>
+                    <span class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.1s"></span>
+                    <span class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div id="quickActions" class="flex gap-2 overflow-x-auto pb-2 px-1">
+        <button onclick="quickAction('vendi')" class="px-3 py-1.5 bg-green-100 text-green-700 rounded-full text-sm whitespace-nowrap">💰 Vendi</button>
+        <button onclick="quickAction('cadastrar cliente')" class="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-full text-sm whitespace-nowrap">👤 Cadastrar Cliente</button>
+        <button onclick="quickAction('produtos')" class="px-3 py-1.5 bg-purple-100 text-purple-700 rounded-full text-sm whitespace-nowrap">👗 Ver Produtos</button>
+        <button onclick="quickAction('pendente')" class="px-3 py-1.5 bg-orange-100 text-orange-700 rounded-full text-sm whitespace-nowrap">⏳ Pendências</button>
+    </div>
+
+    <!-- Input -->
+    <form id="chatForm" class="mt-2 flex gap-2 items-center bg-gray-50 p-2 rounded-xl">
+        {% csrf_token %}
+        <button type="button" onclick="toggleAudio()" class="p-2 text-gray-500 hover:text-primary-500">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
+        </button>
+        <input type="text" id="messageInput" class="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm" placeholder="Digite ou use comandos...">
+        <button type="submit" class="bg-primary-500 text-white p-3 rounded-xl">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+        </button>
+    </form>
+</div>
+
+<!-- Actions Menu -->
+<div id="actionsMenu" class="hidden fixed inset-0 bg-black/50 z-50 flex items-end justify-center">
+    <div class="bg-white w-full max-w-md rounded-t-2xl p-4 space-y-3">
+        <button onclick="createSaleFromChat()" class="w-full p-3 text-left bg-green-50 rounded-xl flex items-center gap-3">
+            <span class="text-xl">💰</span>
+            <div><p class="font-bold">Nova Venda</p><p class="text-xs text-gray-500">Registrar venda</p></div>
+        </button>
+        <button onclick="registerClientFromChat()" class="w-full p-3 text-left bg-blue-50 rounded-xl flex items-center gap-3">
+            <span class="text-xl">👤</span>
+            <div><p class="font-bold">Cadastrar Cliente</p><p class="text-xs text-gray-500">Novo cliente</p></div>
+        </button>
+        <button onclick="closeActions()" class="w-full p-3 text-center text-gray-500">Cancelar</button>
+    </div>
+</div>
+
+<script>
+const messagesDiv = document.getElementById('messages');
+messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+function showActions() {
+    document.getElementById('actionsMenu').classList.remove('hidden');
+}
+
+function closeActions() {
+    document.getElementById('actionsMenu').classList.add('hidden');
+}
+
+function quickAction(action) {
+    document.getElementById('messageInput').value = action;
+    document.getElementById('chatForm').dispatchEvent(new Event('submit'));
+}
+
+function toggleAudio() {
+    alert('Gravação de áudio em desenvolvimento. Por enquanto digite sua mensagem!');
+}
+
+function addMessage(content, role) {
+    const div = document.createElement('div');
+    div.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'}`;
+    div.innerHTML = `<div class="max-w-[85%] p-3 rounded-2xl ${role === 'user' ? 'bg-primary-500 text-white' : 'bg-gray-100 text-gray-800'} ${role === 'assistant' ? 'rounded-bl-md' : 'rounded-br-md'}">
+        ${role === 'assistant' ? '<div class="flex items-start gap-2"><span class="text-lg">🤖</span><div><p class="text-sm whitespace-pre-wrap">' + content + '</p></div></div>' : '<p class="text-sm whitespace-pre-wrap">' + content + '</p>'}
+        <p class="text-xs opacity-60 mt-1">${new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'})}</p>
+    </div>`;
+    messagesDiv.appendChild(div);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+document.getElementById('chatForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const input = document.getElementById('messageInput');
+    const message = input.value.trim();
+    if (!message) return;
+    
+    // Show user message
+    addMessage(message, 'user');
+    input.value = '';
+    
+    // Show typing
+    document.getElementById('typing').classList.remove('hidden');
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    
+    fetch('{% url "chat_send" conversation.id %}', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': '{{ csrf_token }}'},
+        body: 'message=' + encodeURIComponent(message)
+    })
+    .then(r => r.json())
+    .then(data => {
+        document.getElementById('typing').classList.add('hidden');
+        
+        if (data.action === 'create_sale') {
+            // Show sale form
+            addMessage('Entendi! Vou abrir o formulário de venda. Confirme os dados:', 'assistant');
+            setTimeout(() => window.location.href = '{% url "chat_create_sale" conversation.id %}', 1500);
+        } else if (data.action === 'register_client') {
+            addMessage('Vou abrir o formulário de cadastro de cliente.', 'assistant');
+            setTimeout(() => window.location.href = '{% url "chat_new_client" %}', 1500);
+        } else {
+            addMessage(data.message, 'assistant');
+        }
+    })
+    .catch(err => {
+        document.getElementById('typing').classList.add('hidden');
+        addMessage('Erro ao enviar mensagem. Tente novamente.', 'assistant');
+    });
+});
+
+function createSaleFromChat() {
+    closeActions();
+    window.location.href = '{% url "chat_create_sale" conversation.id %}';
+}
+
+function registerClientFromChat() {
+    closeActions();
+    window.location.href = '{% url "chat_new_client" %}';
+}
+</script>
+{% endblock %}

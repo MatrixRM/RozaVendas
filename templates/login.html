@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#ec4899">
+    <title>Login - Roza Vendas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { primary: { 500: '#ec4899', 600: '#db2777' } }
+                }
+            }
+        }
+    </script>
+    <style>
+        * { -webkit-tap-highlight-color: transparent; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-sm">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-primary-600">Roza Vendas</h1>
+            <p class="text-gray-500 mt-2">Sistema de controle de vendas</p>
+        </div>
+        
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <form method="post" class="space-y-4">
+                {% csrf_token %}
+                
+                {% if form.errors %}
+                <div class="p-3 bg-red-100 text-red-700 rounded-xl text-sm">
+                    Usuário ou senha incorretos
+                </div>
+                {% endif %}
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Usuário</label>
+                    <input type="text" name="username" class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500" required autofocus>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Senha</label>
+                    <input type="password" name="password" class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500" required>
+                </div>
+                
+                <button type="submit" class="w-full bg-primary-500 text-white py-3 rounded-xl font-medium shadow-lg shadow-primary-500/25 active:scale-95 transition-all">
+                    Entrar
+                </button>
+            </form>
+        </div>
+        
+        <p class="text-center text-gray-400 text-sm mt-6">
+            Acesse também pelo admin: <a href="/admin" class="text-primary-500">/admin</a>
+        </p>
+    </div>
+</body>
+</html>

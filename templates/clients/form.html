@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-4">
+    <h2 class="text-xl font-bold text-center">{% if client %}Editar{% else %}Novo{% endif %} Cliente</h2>
+
+    <form method="post" class="space-y-4">
+        {% csrf_token %}
+        
+        <div class="card space-y-4">
+            <div>
+                <label class="label flex items-center gap-2">
+                    <span class="text-lg">👤</span> Nome completo
+                </label>
+                <input type="text" name="name" value="{{ client.name|default:'' }}" class="input text-lg py-4" placeholder="Digite o nome" required>
+            </div>
+
+            <div>
+                <label class="label flex items-center gap-2">
+                    <span class="text-lg">📱</span> WhatsApp
+                </label>
+                <input type="tel" name="whatsapp" value="{{ client.whatsapp|default:'' }}" class="input text-lg py-4" placeholder="(00) 00000-0000" required>
+                <p class="text-xs text-gray-400 mt-1">Número para contato e cobrança</p>
+            </div>
+
+            <div>
+                <label class="label flex items-center gap-2">
+                    <span class="text-lg">🏙️</span> Cidade
+                </label>
+                <input type="text" name="city" value="{{ client.city|default:'' }}" class="input text-lg py-4" placeholder="Digite a cidade">
+            </div>
+
+            <div>
+                <label class="label flex items-center gap-2">
+                    <span class="text-lg">📝</span> Observações
+                </label>
+                <textarea name="observations" class="input text-lg py-3" rows="3" placeholder="Informações adicionais...">{{ client.observations|default:'' }}</textarea>
+            </div>
+        </div>
+
+        <div class="flex gap-3">
+            <a href="{% url 'clients_list' %}" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-4 rounded-xl font-bold text-lg text-center">
+                Cancelar
+            </a>
+            <button type="submit" class="flex-1 bg-primary-500 hover:bg-primary-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg shadow-primary-500/25">
+                Salvar ✅
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
