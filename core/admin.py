@@ -4,9 +4,15 @@ from .models import Settings, WhatsAppMessage, WhatsAppTemplate
 
 @admin.register(Settings)
 class SettingsAdmin(admin.ModelAdmin):
-    list_display = ['key', 'value', 'description']
+    list_display = ['key', 'masked_value', 'description']
     search_fields = ['key', 'description']
     readonly_fields = ['id', 'created_at', 'updated_at']
+    
+    def masked_value(self, obj):
+        if obj.key == 'pix_key' and obj.value:
+            return '*' * (len(obj.value) - 4) + obj.value[-4:]
+        return obj.value
+    masked_value.short_description = 'Valor'
     
     def has_view_permission(self, request, obj=None):
         return request.user.is_superuser

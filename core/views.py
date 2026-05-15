@@ -15,13 +15,14 @@ def build_collection_message(client):
     """Constrói mensagem de cobrança com detalhes das vendas pendentes"""
     from sales.models import Sale
     
+    name = client.name.split()[0]
     sales = Sale.objects.filter(
         client=client,
         status__in=['pending', 'partial', 'overdue']
     ).order_by('-created_at')
     
     if not sales:
-        return "Olá {name}! Você está em dia conosco! 😊"
+        return f"Olá {name}! Você está em dia conosco! 😊"
     
     message = f"Olá {name}!\n\n📋 Resumo das suas compras pendentes:\n\n"
     
@@ -47,7 +48,7 @@ def build_collection_message(client):
     message += f"💰 Total pendente: R$ {total_pending:.2f}\n\n"
     message += "Quando puder, nos mande uma mensagem para combinar o pagamento!"
     
-    return message.format(name=client.name.split()[0])
+    return message
 
 
 def build_receipt_message(client, sale=None):
@@ -335,6 +336,8 @@ def settings_view(request):
         commission = request.POST.get('commission_rate')
         pix_key = request.POST.get('pix_key')
         overdue_days = request.POST.get('overdue_days')
+        profit_margin = request.POST.get('profit_margin')
+        min_stock = request.POST.get('min_stock')
         
         if commission:
             Settings.set('commission_rate', commission, 'Taxa de comissão')
@@ -342,6 +345,10 @@ def settings_view(request):
             Settings.set('pix_key', pix_key, 'Chave PIX para cobranças')
         if overdue_days:
             Settings.set('overdue_days', overdue_days, 'Dias para considerar atraso')
+        if profit_margin:
+            Settings.set('profit_margin', profit_margin, 'Margem de lucro (%)')
+        if min_stock:
+            Settings.set('min_stock', min_stock, 'Estoque mínimo para alerta')
         
         messages.success(request, 'Configuração salva!')
     
@@ -349,11 +356,15 @@ def settings_view(request):
     commission = Settings.get('commission_rate', '35')
     pix_key = Settings.get('pix_key', '')
     overdue_days = Settings.get('overdue_days', '7')
+    profit_margin = Settings.get('profit_margin', '5')
+    min_stock = Settings.get('min_stock', '5')
     
     return render(request, 'core/settings.html', {
         'commission': commission,
         'pix_key': pix_key,
-        'overdue_days': overdue_days
+        'overdue_days': overdue_days,
+        'profit_margin': profit_margin,
+        'min_stock': min_stock
     })
 
 

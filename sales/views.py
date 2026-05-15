@@ -179,7 +179,13 @@ def receive_payment(request, pk):
     
     if request.method == 'POST':
         amount = Decimal(str(request.POST.get('amount', 0)))
+        payment_type = request.POST.get('payment_type', 'cash')
+        
         sale.paid_amount += amount
+        
+        # Atualizar forma de pagamento
+        if payment_type != sale.payment_type:
+            sale.payment_type = payment_type
         
         if sale.paid_amount >= sale.total:
             sale.status = 'paid'

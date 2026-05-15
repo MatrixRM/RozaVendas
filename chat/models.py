@@ -6,15 +6,29 @@ import uuid
 class AISettings(models.Model):
     """Configurações de IA para o chat"""
     MODEL_CHOICES = [
+        # OpenAI
         ('gpt-4o-mini', 'GPT-4o Mini'),
         ('gpt-4o', 'GPT-4o'),
         ('gpt-4-turbo', 'GPT-4 Turbo'),
+        ('gpt-4', 'GPT-4'),
+        # Anthropic
         ('claude-3-haiku', 'Claude 3 Haiku'),
         ('claude-3-sonnet', 'Claude 3 Sonnet'),
+        ('claude-3-opus', 'Claude 3 Opus'),
+        # Groq (sem visão)
+        ('llama-3.3-70b-versatile', 'Llama 3.3 70B'),
+        ('mixtral-8x7b-32768', 'Mixtral 8x7B'),
+        # Google Gemini (gratuito com visão)
+        ('gemini-1.5-flash-8k', 'Gemini 1.5 Flash 8K'),
+    ]
+    
+    PROVIDER_CHOICES = [
+        ('openai', 'OpenAI'),
     ]
     
     name = models.CharField('Nome', max_length=100, default='Chat IA')
     model = models.CharField('Modelo', max_length=50, choices=MODEL_CHOICES, default='gpt-4o-mini')
+    provider = models.CharField('Provedor', max_length=20, choices=PROVIDER_CHOICES, default='openai')
     api_key = models.CharField('API Key', max_length=500, blank=True)
     api_url = models.URLField('URL da API', default='https://api.openai.com/v1/chat/completions')
     system_prompt = models.TextField('Prompt do Sistema', default='')

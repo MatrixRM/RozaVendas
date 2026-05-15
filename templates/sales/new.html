@@ -84,9 +84,9 @@
         <div class="mb-4">
             <p class="text-sm text-gray-500 mb-2">Forma de pagamento</p>
             <div class="grid grid-cols-3 gap-2">
-                <button onclick="setPaymentType('cash')" class="payment-btn p-3 rounded-xl border-2 text-center font-bold" data-type="cash">💵 Dinheiro</button>
-                <button onclick="setPaymentType('pix')" class="payment-btn p-3 rounded-xl border-2 text-center font-bold" data-type="pix">📱 PIX</button>
-                <button onclick="setPaymentType('card')" class="payment-btn p-3 rounded-xl border-2 text-center font-bold" data-type="card">💳 Cartão</button>
+                <button onclick="setPaymentType('cash')" class="payment-btn p-3 rounded-xl border-2 text-center font-bold border-gray-300 hover:border-primary-500" data-type="cash">💵 Dinheiro</button>
+                <button onclick="setPaymentType('pix')" class="payment-btn p-3 rounded-xl border-2 text-center font-bold border-gray-300 hover:border-primary-500" data-type="pix">📱 PIX</button>
+                <button onclick="setPaymentType('card')" class="payment-btn p-3 rounded-xl border-2 text-center font-bold border-gray-300 hover:border-primary-500" data-type="card">💳 Cartão</button>
             </div>
         </div>
 
@@ -140,6 +140,11 @@ let paymentType = 'cash';
 let installment = 1;
 let total = 0;
 let selectedProduct = null;
+
+// Inicializar seleção de pagamento
+document.addEventListener('DOMContentLoaded', function() {
+    setPaymentType('cash');
+});
 
 function selectProduct(id, name, price) {
     selectedProduct = {id, name, price, quantity: 1};
@@ -256,10 +261,15 @@ function setPaymentType(type) {
     
     document.querySelectorAll('.payment-btn').forEach(btn => {
         const isSelected = btn.dataset.type === type;
-        btn.classList.toggle('border-primary-500', isSelected);
-        btn.classList.toggle('bg-primary-50', isSelected);
-        btn.classList.toggle('ring-2', isSelected);
-        btn.classList.toggle('ring-primary-500', isSelected);
+        if (isSelected) {
+            btn.style.borderColor = '#ec4899';
+            btn.style.backgroundColor = '#fdf2f8';
+            btn.style.borderWidth = '3px';
+        } else {
+            btn.style.borderColor = '#d1d5db';
+            btn.style.backgroundColor = 'transparent';
+            btn.style.borderWidth = '2px';
+        }
     });
     
     // Show/hide installment options for card or cash
@@ -277,14 +287,23 @@ function setInstallment(qty) {
     installment = qty;
     document.querySelectorAll('.installment-btn').forEach(btn => {
         const isSelected = parseInt(btn.dataset.installment) === qty;
-        btn.classList.toggle('border-primary-500', isSelected);
-        btn.classList.toggle('bg-primary-50', isSelected);
+        if (isSelected) {
+            btn.style.borderColor = '#ec4899';
+            btn.style.backgroundColor = '#fdf2f8';
+            btn.style.borderWidth = '3px';
+        } else {
+            btn.style.borderColor = '#d1d5db';
+            btn.style.backgroundColor = 'transparent';
+            btn.style.borderWidth = '2px';
+        }
     });
     
     // Update paid amount based on total / installment
-    const paid = total / qty;
-    document.getElementById('paidAmount').value = paid.toFixed(2);
-    updatePayment();
+    if (total > 0) {
+        const paid = total / qty;
+        document.getElementById('paidAmount').value = paid.toFixed(2);
+        updatePayment();
+    }
 }
 
 function setPaidAmount(val) {

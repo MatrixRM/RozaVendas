@@ -23,13 +23,18 @@
                 </div>
                 
                 <div>
-                    <label class="label">Modelo</label>
-                    <select name="model" class="input">
-                        <option value="gpt-4o-mini" {% if active.model == 'gpt-4o-mini' %}selected{% endif %}>GPT-4o Mini (Mais rápido)</option>
-                        <option value="gpt-4o" {% if active.model == 'gpt-4o' %}selected{% endif %}>GPT-4o</option>
+                    <label class="label">Provedor</label>
+                    <select name="provider" class="input" id="providerSelect" onchange="updateModels()">
+                        <option value="openai" {% if active.provider == 'openai' or not active.provider %}selected{% endif %}>OpenAI</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="label">Modelo (para Importação use GPT-4o)</label>
+                    <select name="model" class="input" id="modelSelect">
+                        <option value="gpt-4o" {% if active.model == 'gpt-4o' %}selected{% endif %}>GPT-4o (Recomendado para importacao)</option>
+                        <option value="gpt-4o-mini" {% if active.model == 'gpt-4o-mini' %}selected{% endif %}>GPT-4o Mini (Mais rapido)</option>
                         <option value="gpt-4-turbo" {% if active.model == 'gpt-4-turbo' %}selected{% endif %}>GPT-4 Turbo</option>
-                        <option value="claude-3-haiku" {% if active.model == 'claude-3-haiku' %}selected{% endif %}>Claude 3 Haiku</option>
-                        <option value="claude-3-sonnet" {% if active.model == 'claude-3-sonnet' %}selected{% endif %}>Claude 3 Sonnet</option>
                     </select>
                 </div>
                 
@@ -106,6 +111,28 @@ Sempre confirme os dados antes de executar ações importantes.</pre>
     <script>
     function showPromptHelp() {
         document.getElementById('promptHelp').showModal();
+    }
+    
+    function updateModels() {
+        const provider = document.getElementById('providerSelect').value;
+        const modelSelect = document.getElementById('modelSelect');
+        const models = {
+            'openai': [
+                {value: 'gpt-4o', text: 'GPT-4o (Recomendado)'},
+                {value: 'gpt-4o-mini', text: 'GPT-4o Mini'},
+                {value: 'gpt-4-turbo', text: 'GPT-4 Turbo'},
+            ]
+        };
+        
+        modelSelect.innerHTML = '';
+        if (models[provider]) {
+            models[provider].forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m.value;
+                opt.text = m.text;
+                modelSelect.appendChild(opt);
+            });
+        }
     }
     </script>
 

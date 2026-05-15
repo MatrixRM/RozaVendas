@@ -1,4 +1,5 @@
 import re
+import base64
 from decimal import Decimal
 
 
@@ -9,7 +10,14 @@ class ChatService:
         self.ai_settings = ai_settings
         self.model = ai_settings.model
         self.api_key = ai_settings.api_key
-        self.api_url = ai_settings.api_url
+        self.provider = getattr(ai_settings, 'provider', 'openai')
+        
+        # Definir URL base conforme provedor
+        if self.provider == 'openai':
+            self.api_url = 'https://api.openai.com/v1/chat/completions'
+        else:
+            self.api_url = 'https://api.openai.com/v1/chat/completions'
+        
         self.system_prompt = ai_settings.system_prompt or self._default_system_prompt()
     
     def _default_system_prompt(self):
@@ -83,7 +91,9 @@ Sempre confirme os dados antes de executar ações importantes."""
             'create_sale': [
                 r'vendi\b', r'venda\b', r'vender\b', r'comprou\b', r'compra\b',
                 r'vou vender\b', r'queria vender\b', r'vendeu\b', r'teve\b',
-                r'fiz uma venda\b', r'fazer uma venda\b', r'nova venda\b'
+                r'fiz uma venda\b', r'fazer uma venda\b', r'nova venda\b',
+                r'foi vendido\b', r'vendem\b', r'vendido\b', r'vendido\s+\d+',
+                r'tá vendido\b', r'está vendido\b', r'levou\b', r'pegou\b'
             ],
             'register_client': [
                 r'cadastrar\b', r'cadastro\b', r'novo cliente\b', r'cliente novo\b',
@@ -126,6 +136,11 @@ Sempre confirme os dados antes de executar ações importantes."""
             ],
             'cancel_sale': [
                 r'cancelar venda\b', r'excluir venda\b', r'remover venda\b'
+            ],
+            'upload_product_list': [
+                r'importar produtos\b', r'cadastrar produtos\b', r'lista de produtos\b',
+                r'cadastrar em lote\b', r'foto de produtos\b', r'imagem de produtos\b',
+                r'tabela de preços\b', r'catálogo\b', r'cadastro em massa\b'
             ]
         }
         
@@ -172,3 +187,97 @@ def get_chat_service():
     if not ai_settings:
         return None
     return ChatService(ai_settings)
+
+
+def parse_product_list_from_text(text):
+    """Extrai lista de produtos do texto com validação rigorosa"""
+    products = []
+    lines = text.strip().split('\n')
+    
+    for line in lines:
+        line = line.strip()
+        if not line or len(line) < 3:
+            continue
+        
+        lower = line.lower()
+        if any(skip in lower for skip in ['não', 'consegui', 'identificar', 'ajudar', 'entender', 'formato', 'não consegui', 'json', 'produtos']):
+            continue
+        
+        # Tentar múltiplos formatos
+        # Formato: código | nome | preço | quantidade
+        patterns = [
+            r'(\d{2,5})\s*[\|\-]\s*([A-Za-zÀ-ÖØ-öø-ÿ\s]+?)\s*[\|\-]\s*([\d.,]+)\s*[\|\-]\s*(\d+)',
+            # Formato: código nome preço qtd
+            r'(\d{2,5})\s+([A-Za-zÀ-ÖØ-öø-ÿ\s]+?)\s+([\d.,]+)\s+(\d+)',
+            # Formato: código - nome - R$ preço - qtd
+            r'(\d{2,5})\s*[-–]\s*([A-Za-zÀ-ÖØ-öø-ÿ\s]+?)\s*[-–]\s*R?\$?\s*([\d.,]+)\s*[-–]\s*(\d+)',
+        ]
+        
+        matched = False
+        for pattern in patterns:
+            match = re.search(pattern, line, re.IGNORECASE)
+            if match:
+                groups = match.groups()
+                code = groups[0]
+                
+                # Validar código é número razoável
+                if not code.isdigit() or int(code) > 99999:
+                    continue
+                
+                name = groups[1].strip()
+                if len(name) < 2:
+                    continue
+                
+                try:
+                    # Validar preço
+                    price_str = groups[2].replace(',', '.')
+                    price = float(price_str)
+                    if price <= 0 or price > 10000:  # Preço razoável
+                        continue
+                except:
+                    continue
+                
+                try:
+                    # Validar quantidade
+                    quantity = int(groups[3])
+                    if quantity < 1 or quantity > 9999:
+                        quantity = 1
+                except:
+                    quantity = 1
+                
+                products.append({
+                    'codigo': code,
+                    'nome': name.upper(),
+                    'preco': price,
+                    'quantidade': quantity
+                })
+                matched = True
+                break
+        
+        # Se não encontrou com padrões, tentar extrair qualquer linha com código numérico
+        if not matched:
+            code_match = re.search(r'^(\d{2,5})[\s\|\-]', line)
+            if code_match:
+                code = code_match.group(1)
+                # Tentar extrair preço
+                price_match = re.search(r'([\d.,]+)', line)
+                if price_match:
+                    try:
+                        price = float(price_match.group(1).replace(',', '.'))
+                        if price > 0 and price < 10000:
+                            # Remover código e preço do nome
+                            name = re.sub(r'^(\d+[\s\|\-]*)', '', line, count=1)
+                            name = re.sub(r'[\d.,]+$', '', name).strip()
+                            name = re.sub(r'[\d.,]+\s*$', '', name).strip()
+                            
+                            if len(name) >= 2:
+                                products.append({
+                                    'codigo': code,
+                                    'nome': name.upper()[:50],
+                                    'preco': price,
+                                    'quantidade': 1
+                                })
+                    except:
+                        pass
+    
+    return products

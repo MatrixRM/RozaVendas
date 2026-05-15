@@ -1,0 +1,243 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="space-y-4">
+    <div class="flex justify-between items-center">
+        <h2 class="text-xl font-bold">📷 Importar Produtos por Foto</h2>
+    </div>
+
+    {% if messages %}
+    {% for message in messages %}
+    <div class="p-4 rounded-xl {% if message.tags == 'error' %}bg-red-100 text-red-700{% else %}bg-green-100 text-green-700{% endif %}">
+        {{ message }}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if step == 'upload' %}
+    <div class="card text-center py-8">
+        <div class="text-6xl mb-4">📷</div>
+        <h3 class="font-bold text-lg mb-2">Tire uma foto da lista de produtos</h3>
+        <p class="text-gray-500 text-sm mb-6">A IA vai identificar automaticamente código, descrição, preço e quantidade</p>
+        
+        <form method="post" enctype="multipart/form-data" id="uploadForm">
+            {% csrf_token %}
+            <input type="file" id="imageInput" name="image" accept="image/*" class="hidden" onchange="previewImage(this)">
+            
+            <div id="imagePreview" class="hidden mb-4">
+                <img id="previewImg" class="max-h-64 mx-auto rounded-lg border" src="" alt="Preview">
+            </div>
+            
+            <div class="space-y-3">
+                <button type="button" onclick="document.getElementById('imageInput').click()" class="w-full btn-primary py-4 text-lg">
+                    📷 Selecionar Foto
+                </button>
+                
+                <button type="submit" id="processBtn" class="w-full btn bg-green-500 text-white py-4 text-lg hidden" disabled>
+                    🔄 Processar Lista
+                </button>
+            </div>
+        </form>
+        
+        <div class="mt-6 text-left bg-gray-50 p-4 rounded-xl">
+            <p class="text-sm font-bold text-gray-700 mb-2">💡 Dicas para melhor resultado:</p>
+            <ul class="text-xs text-gray-500 space-y-1">
+                <li>• Tire a foto de frente, bem iluminada</li>
+                <li>• Mantenha a lista reta (não inclinada)</li>
+                <li>• Garanta que todos os dados sejam legíveis</li>
+                <li>• Evite sombras e reflexos</li>
+            </ul>
+        </div>
+    </div>
+    
+    {% elif step == 'preview' %}
+    <div class="card">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="font-bold">📋 {{ products|length }} produtos encontrados</h3>
+            <span class="text-2xl font-bold text-green-600">R$ {{ total_value|floatformat:2 }}</span>
+        </div>
+        
+        {% if warning %}
+        <div class="bg-orange-100 border border-orange-300 p-3 rounded-lg mb-4">
+            <p class="text-sm text-orange-700">{{ warning }}</p>
+        </div>
+        {% endif %}
+        
+        <div class="bg-yellow-50 border border-yellow-200 p-3 rounded-lg mb-4">
+            <p class="text-sm text-yellow-700">Revise os produtos antes de cadastrar. Você pode editar ou remover itens.</p>
+        </div>
+        
+        <div class="space-y-3 max-h-96 overflow-y-auto" id="productsList">
+            {% for p in products %}
+            <div class="border rounded-lg p-3 bg-white" id="product-{{ forloop.counter0 }}">
+                <div class="flex justify-between items-start mb-2">
+                    <div>
+                        <span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">{{ p.codigo }}</span>
+                        <span class="text-xs text-gray-400 ml-2">{{ p.categoria }}</span>
+                    </div>
+                    <button type="button" onclick="removeProduct({{ forloop.counter0 }})" class="text-red-500">✕</button>
+                </div>
+                <input type="text" class="input text-sm font-bold w-full mb-2" value="{{ p.nome }}" id="name-{{ forloop.counter0 }}" onchange="updateProduct({{ forloop.counter0 }}, 'nome', this.value)">
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="text-xs text-gray-500">Custo (R$)</label>
+                        <input type="number" step="0.01" class="input text-sm bg-blue-50" value="{{ p.preco|stringformat:'f' }}" id="cost-{{ forloop.counter0 }}" onchange="updateProduct({{ forloop.counter0 }}, 'preco', this.value)">
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-500">Venda (R$)</label>
+                        <input type="number" step="0.01" class="input text-sm bg-green-50" value="{{ p.preco|floatformat:2 }}" id="price-{{ forloop.counter0 }}" readonly>
+                        <span class="text-xs text-green-600">+5%</span>
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-500">Qtd</label>
+                        <input type="number" class="input text-sm" value="{{ p.quantidade }}" id="qty-{{ forloop.counter0 }}" onchange="updateProduct({{ forloop.counter0 }}, 'quantidade', this.value)">
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <label class="text-xs text-gray-500">Categoria</label>
+                    <select class="input text-sm" id="cat-{{ forloop.counter0 }}" onchange="updateProduct({{ forloop.counter0 }}, 'categoria', this.value)">
+                        <option value="calcinha" {% if p.categoria == 'calcinha' %}selected{% endif %}>Calcinha</option>
+                        <option value="lingerie" {% if p.categoria == 'lingerie' %}selected{% endif %}>Lingerie</option>
+                        <option value="cueca" {% if p.categoria == 'cueca' %}selected{% endif %}>Cueca</option>
+                        <option value="sutia" {% if p.categoria == 'sutia' %}selected{% endif %}>Sutiã</option>
+                        <option value="meia" {% if p.categoria == 'meia' %}selected{% endif %}>Meia</option>
+                        <option value="moletom" {% if p.categoria == 'moletom' %}selected{% endif %}>Moletom</option>
+                        <option value="roupas" {% if p.categoria == 'roupas' %}selected{% endif %}>Roupas</option>
+                        <option value="pijama" {% if p.categoria == 'pijama' %}selected{% endif %}>Pijama</option>
+                        <option value="infantil" {% if p.categoria == 'infantil' %}selected{% endif %}>Infantil</option>
+                        <option value="outros" {% if p.categoria == 'outros' %}selected{% endif %}>Outros</option>
+                    </select>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <form method="post" action="{% url 'product_import_confirm' %}">
+            {% csrf_token %}
+            <input type="hidden" name="products_data" id="productsData" value="{{ products_json }}">
+            <input type="hidden" name="batch_id" value="{{ batch_id }}">
+            
+            <button type="submit" class="w-full btn-primary py-4 text-lg mt-4">
+                ✅ Cadastrar {{ products|length }} Produtos
+            </button>
+        </form>
+        
+        <a href="{% url 'product_import' %}" class="block text-center text-gray-500 py-2 mt-2">
+            Cancelar e fazer nova importação
+        </a>
+    </div>
+    
+    {% elif step == 'success' %}
+    <div class="card text-center py-8">
+        <div class="text-6xl mb-4">✅</div>
+        <h3 class="font-bold text-2xl text-green-600 mb-2">Sucesso!</h3>
+        <p class="text-gray-600 mb-4">{{ count }} produtos cadastrados</p>
+        
+        <div class="bg-green-50 p-4 rounded-xl mb-6">
+            <p class="text-green-700 font-bold">Valor total: R$ {{ total_value|floatformat:2 }}</p>
+        </div>
+        
+        <div class="space-y-3">
+            <a href="{% url 'products_list' %}" class="block btn-primary py-3">
+                📦 Ver Produtos
+            </a>
+            <a href="{% url 'product_import' %}" class="block btn py-3">
+                📷 Importar Mais Produtos
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+let productsData = {% if products %}{{ products|safe }}{% else %}[]{% endif %};
+
+function previewImage(input) {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('previewImg').src = e.target.result;
+            document.getElementById('imagePreview').classList.remove('hidden');
+            document.getElementById('processBtn').classList.remove('hidden');
+            document.getElementById('processBtn').disabled = false;
+        }
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+function removeProduct(index) {
+    productsData.splice(index, 1);
+    renderProducts();
+}
+
+function updateProduct(index, field, value) {
+    if (field === 'preco' || field === 'quantidade') {
+        productsData[index][field] = parseFloat(value) || 0;
+    } else {
+        productsData[index][field] = value;
+    }
+}
+
+function renderProducts() {
+    const container = document.getElementById('productsList');
+    let html = '';
+    let total = 0;
+    
+    productsData.forEach((p, i) => {
+        total += p.preco * p.quantidade;
+        html += `
+        <div class="border rounded-lg p-3 bg-white" id="product-${i}">
+            <div class="flex justify-between items-start mb-2">
+                <div>
+                    <span class="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">${p.codigo}</span>
+                    <span class="text-xs text-gray-400 ml-2">${p.categoria}</span>
+                </div>
+                <button type="button" onclick="removeProduct(${i})" class="text-red-500">✕</button>
+            </div>
+            <input type="text" class="input text-sm font-bold w-full mb-2" value="${p.nome}" onchange="updateProduct(${i}, 'nome', this.value)">
+            <div class="grid grid-cols-3 gap-2">
+                <div>
+                    <label class="text-xs text-gray-500">Preço</label>
+                    <input type="number" step="0.01" class="input text-sm" value="${p.preco.toFixed(2)}" onchange="updateProduct(${i}, 'preco', this.value)">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500">Qtd</label>
+                    <input type="number" class="input text-sm" value="${p.quantidade}" onchange="updateProduct(${i}, 'quantidade', this.value)">
+                </div>
+                <div>
+                    <label class="text-xs text-gray-500">Categoria</label>
+                    <select class="input text-sm" onchange="updateProduct(${i}, 'categoria', this.value)">
+                        <option value="calcinha" ${p.categoria === 'calcinha' ? 'selected' : ''}>Calcinha</option>
+                        <option value="lingerie" ${p.categoria === 'lingerie' ? 'selected' : ''}>Lingerie</option>
+                        <option value="cueca" ${p.categoria === 'cueca' ? 'selected' : ''}>Cueca</option>
+                        <option value="sutia" ${p.categoria === 'sutia' ? 'selected' : ''}>Sutiã</option>
+                        <option value="meia" ${p.categoria === 'meia' ? 'selected' : ''}>Meia</option>
+                        <option value="moletom" ${p.categoria === 'moletom' ? 'selected' : ''}>Moletom</option>
+                        <option value="roupas" ${p.categoria === 'roupas' ? 'selected' : ''}>Roupas</option>
+                        <option value="pijama" ${p.categoria === 'pijama' ? 'selected' : ''}>Pijama</option>
+                        <option value="infantil" ${p.categoria === 'infantil' ? 'selected' : ''}>Infantil</option>
+                        <option value="outros" ${p.categoria === 'outros' ? 'selected' : ''}>Outros</option>
+                    </select>
+                </div>
+            </div>
+        </div>`;
+    });
+    
+    container.innerHTML = html;
+    document.getElementById('productsData').value = JSON.stringify(productsData);
+    
+    if (productsData.length === 0) {
+        container.innerHTML = '<p class="text-center text-gray-500 py-4">Nenhum produto para cadastrar</p>';
+    }
+}
+
+document.getElementById('uploadForm')?.addEventListener('submit', function(e) {
+    console.log('Form submitted!');
+    const btn = document.getElementById('processBtn');
+    if (btn) {
+        btn.innerHTML = '🔄 Processando...';
+        btn.disabled = true;
+    }
+});
+</script>
+{% endblock %}

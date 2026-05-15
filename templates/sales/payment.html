@@ -22,6 +22,17 @@
     <form method="post" class="card space-y-4" onsubmit="return confirmPayment(event)">
         {% csrf_token %}
         
+        <!-- Forma de Pagamento -->
+        <div>
+            <label class="label text-lg font-medium">Forma de pagamento</label>
+            <div class="grid grid-cols-3 gap-2 mt-2">
+                <button type="button" onclick="setPaymentMethod('cash')" id="btn-cash" class="payment-btn p-3 rounded-xl border-2 text-center font-bold border-gray-300 hover:border-primary-500">💵 Dinheiro</button>
+                <button type="button" onclick="setPaymentMethod('pix')" id="btn-pix" class="payment-btn p-3 rounded-xl border-2 text-center font-bold border-gray-300 hover:border-primary-500">📱 PIX</button>
+                <button type="button" onclick="setPaymentMethod('card')" id="btn-card" class="payment-btn p-3 rounded-xl border-2 text-center font-bold border-gray-300 hover:border-primary-500">💳 Cartão</button>
+            </div>
+            <input type="hidden" name="payment_type" id="paymentTypeInput" value="cash">
+        </div>
+        
         <div>
             <label class="label text-lg font-medium">Valor do pagamento</label>
             <div class="flex gap-2">
@@ -35,6 +46,25 @@
 
         <script>
         const pendingAmount = {{ pending_amount|stringformat:"f" }};
+        
+        // Inicializar forma de pagamento
+        setPaymentMethod('cash');
+        
+        function setPaymentMethod(type) {
+            document.getElementById('paymentTypeInput').value = type;
+            ['cash', 'pix', 'card'].forEach(t => {
+                const btn = document.getElementById('btn-' + t);
+                if (t === type) {
+                    btn.style.borderColor = '#ec4899';
+                    btn.style.backgroundColor = '#fdf2f8';
+                    btn.style.borderWidth = '3px';
+                } else {
+                    btn.style.borderColor = '#d1d5db';
+                    btn.style.backgroundColor = 'transparent';
+                    btn.style.borderWidth = '2px';
+                }
+            });
+        }
         
         function setFullAmount() {
             document.getElementById('amountInput').value = pendingAmount;

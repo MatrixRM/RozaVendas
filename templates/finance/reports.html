@@ -2,7 +2,24 @@
 
 {% block content %}
 <div class="space-y-4">
-    <h2 class="text-2xl font-bold text-center">📊 Relatórios</h2>
+    <div class="flex flex-col gap-3">
+        <h2 class="text-2xl font-bold text-center">📊 Relatórios</h2>
+        
+        <div class="flex justify-center gap-2 flex-wrap">
+            <a href="{% url 'sales_pdf' %}?period=today" class="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-rose-500 to-pink-500 text-white rounded-xl text-sm font-semibold shadow-md hover:shadow-lg active:scale-95 transition-all">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"/></svg>
+                Hoje
+            </a>
+            <a href="{% url 'sales_pdf' %}?period=month" class="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl text-sm font-semibold shadow-md hover:shadow-lg active:scale-95 transition-all">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"/></svg>
+                Este Mês
+            </a>
+            <a href="{% url 'sales_pdf' %}?period=year" class="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl text-sm font-semibold shadow-md hover:shadow-lg active:scale-95 transition-all">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"/></svg>
+                Ano
+            </a>
+        </div>
+    </div>
 
     <div class="card">
         <h3 class="font-bold text-lg mb-4">📅 Este mês</h3>

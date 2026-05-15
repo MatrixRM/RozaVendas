@@ -6,9 +6,14 @@ from .models import AISettings, ChatConversation, ChatMessage
 class AISettingsAdmin(admin.ModelAdmin):
     list_display = ['name', 'model', 'active', 'created_at']
     list_filter = ['active', 'model']
-    search_fields = ['name', 'api_key']
-    readonly_fields = ['id', 'created_at', 'updated_at']
+    search_fields = ['name']
+    readonly_fields = ['id', 'created_at', 'updated_at', 'api_key']
     ordering = ['-created_at']
+    
+    def get_readonly_fields(self, request, obj=None):
+        if obj:
+            return ['id', 'created_at', 'updated_at', 'api_key']
+        return ['id', 'created_at', 'updated_at']
     
     def has_view_permission(self, request, obj=None):
         return request.user.is_superuser
