@@ -106,6 +106,7 @@ def product_edit(request, pk):
 
 
 @login_required
+@require_http_methods(["POST"])
 def product_delete(request, pk):
     product = get_object_or_404(Product, pk=pk)
     product.active = False
