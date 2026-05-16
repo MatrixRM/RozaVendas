@@ -16,11 +16,12 @@ import os
 def dashboard(request):
     now = timezone.now()
     today = now.date()
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     month_sales = Sale.objects.exclude(status='canceled').filter(created_at__gte=month_start)
     
-    today_sales = Sale.objects.exclude(status='canceled').filter(created_at__date=today)
+    today_sales = Sale.objects.exclude(status='canceled').filter(created_at__gte=today_start)
     
     total_today = today_sales.aggregate(Sum('total'))['total__sum'] or 0
     total_month = month_sales.aggregate(Sum('total'))['total__sum'] or 0
