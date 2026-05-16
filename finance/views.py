@@ -8,20 +8,18 @@ from sales.models import Sale
 from core.models import Settings
 from django.conf import settings
 from fpdf import FPDF
-from datetime import datetime
+from datetime import datetime, date
 import os
 
 
 @login_required
 def dashboard(request):
-    now = timezone.now()
-    today = now.date()
-    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today = date.today()
     
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    month_sales = Sale.objects.exclude(status='canceled').filter(created_at__gte=month_start)
+    month_start = date.today().replace(day=1)
+    month_sales = Sale.objects.exclude(status='canceled').filter(created_at__date__gte=month_start)
     
-    today_sales = Sale.objects.exclude(status='canceled').filter(created_at__gte=today_start)
+    today_sales = Sale.objects.exclude(status='canceled').filter(created_at__date=today)
     
     total_today = today_sales.aggregate(Sum('total'))['total__sum'] or 0
     total_month = month_sales.aggregate(Sum('total'))['total__sum'] or 0
@@ -63,12 +61,12 @@ def debtors_list(request):
 
 @login_required
 def reports(request):
-    now = timezone.now()
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    year_start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+    today = date.today()
+    month_start = today.replace(day=1)
+    year_start = today.replace(month=1, day=1)
     
-    month_sales = Sale.objects.exclude(status='canceled').filter(created_at__gte=month_start)
-    year_sales = Sale.objects.exclude(status='canceled').filter(created_at__gte=year_start)
+    month_sales = Sale.objects.exclude(status='canceled').filter(created_at__date__gte=month_start)
+    year_sales = Sale.objects.exclude(status='canceled').filter(created_at__date__gte=year_start)
     
     commission_rate = float(Settings.get('commission_rate', settings.COMISSION_RATE * 100)) / 100
     
@@ -124,19 +122,19 @@ class PDFReport(FPDF):
 @login_required
 def sales_pdf(request):
     period = request.GET.get('period', 'month')
-    now = timezone.now()
+    today = date.today()
     
     if period == 'today':
-        sales = Sale.objects.exclude(status='canceled').filter(created_at__date=now.date())
+        sales = Sale.objects.exclude(status='canceled').filter(created_at__date=today)
         period_name = 'Hoje'
     elif period == 'year':
-        year_start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
-        sales = Sale.objects.exclude(status='canceled').filter(created_at__gte=year_start)
-        period_name = f'Ano ({now.year})'
+        year_start = today.replace(month=1, day=1)
+        sales = Sale.objects.exclude(status='canceled').filter(created_at__date__gte=year_start)
+        period_name = f'Ano ({today.year})'
     else:
-        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        sales = Sale.objects.exclude(status='canceled').filter(created_at__gte=month_start)
-        period_name = f'Mes {now.strftime("%m/%Y")}'
+        month_start = today.replace(day=1)
+        sales = Sale.objects.exclude(status='canceled').filter(created_at__date__gte=month_start)
+        period_name = f'Mes {today.strftime("%m/%Y")}'
     
     if not sales.exists():
         return HttpResponse('Nenhuma venda neste periodo', status=404)
@@ -218,5 +216,5 @@ def sales_pdf(request):
     
     pdf_data = bytes(pdf.output())
     response = HttpResponse(pdf_data, content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="relatorio_vendas_{period}_{now.strftime("%Y%m%d")}.pdf"'
+    response['Content-Disposition'] = f'attachment; filename="relatorio_vendas_{period}_{today.strftime("%Y%m%d")}.pdf"'
     return response

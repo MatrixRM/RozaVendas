@@ -6,6 +6,7 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Sum, Count
 from django.conf import settings
 from django.utils import timezone
+from datetime import date
 from decimal import Decimal
 import json
 from .models import Sale
@@ -59,12 +60,11 @@ def sales_list(request):
     
     sales = list(sales_qs[:20])
     
-    now = timezone.now()
-    today = now.date()
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    today = date.today()
+    month_start = today.replace(day=1)
     
     total_today = sales_qs.filter(created_at__date=today).aggregate(Sum('total'))['total__sum'] or 0
-    total_month = Sale.objects.exclude(status='canceled').filter(created_at__gte=month_start).aggregate(Sum('total'))['total__sum'] or 0
+    total_month = Sale.objects.exclude(status='canceled').filter(created_at__date__gte=month_start).aggregate(Sum('total'))['total__sum'] or 0
     
     commission_rate = float(Settings.get('commission_rate', settings.COMISSION_RATE * 100)) / 100
     commission_month = float(total_month) * commission_rate
@@ -253,7 +253,7 @@ def cancel_sale(request, pk):
 
 @login_required
 def quick_stats(request):
-    today = timezone.now().date()
+    today = date.today()
     month_start = today.replace(day=1)
     
     sales = Sale.objects.filter(created_at__date=today)
