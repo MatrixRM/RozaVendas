@@ -7,14 +7,16 @@
     <form method="post" enctype="multipart/form-data" class="space-y-4">
         {% csrf_token %}
         
+        <!-- Nome do Produto -->
         <div>
-            <label class="label">Nome</label>
-            <input type="text" name="name" value="{{ product.name|default:'' }}" class="input" required>
+            <label class="label">📦 Nome do Produto</label>
+            <input type="text" name="name" value="{{ product.name|default:''|escape }}" class="input" placeholder="Ex: Calcinha Floral Rosa" required>
         </div>
 
+        <!-- Categoria e Tamanho -->
         <div class="grid grid-cols-2 gap-3">
             <div>
-                <label class="label">Categoria</label>
+                <label class="label">🏷️ Categoria</label>
                 <select name="category" class="input" required>
                     {% for cat in categories %}
                     <option value="{{ cat.0 }}" {% if product.category == cat.0 %}selected{% endif %}>{{ cat.1 }}</option>
@@ -22,9 +24,9 @@
                 </select>
             </div>
             <div>
-                <label class="label">Tamanho</label>
+                <label class="label">📏 Tamanho</label>
                 <select name="size" class="input">
-                    <option value="">Selecione</option>
+                    <option value="">Padrão</option>
                     {% for size in sizes %}
                     <option value="{{ size.0 }}" {% if product.size == size.0 %}selected{% endif %}>{{ size.1 }}</option>
                     {% endfor %}
@@ -32,54 +34,93 @@
             </div>
         </div>
 
+        <!-- Cor e Estoque -->
         <div class="grid grid-cols-2 gap-3">
             <div>
-                <label class="label">Cor</label>
-                <input type="text" name="color" value="{{ product.color|default:'' }}" class="input">
+                <label class="label">🎨 Cor</label>
+                <input type="text" name="color" value="{{ product.color|default:''|escape }}" class="input" placeholder="Ex: Rosa, Preto">
             </div>
             <div>
-                <label class="label">Estoque</label>
-                <input type="number" name="stock" value="{{ product.stock|default:0 }}" class="input">
+                <label class="label">📂 Estoque</label>
+                <input type="number" name="stock" value="{{ product.stock|default:0|escape }}" class="input" placeholder="Quantidade">
             </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-3">
-            <div>
-                <label class="label">Custo (R$)</label>
-                <input type="number" step="0.01" name="cost" value="{{ product.cost|default:0 }}" class="input" id="costInput" oninput="calculatePrice()">
-                <p class="text-xs text-gray-500 mt-1">Margem: {{ profit_margin|default:5 }}%</p>
+        <!-- Preços -->
+        <div class="card bg-gradient-to-r from-pink-50 to-purple-50 border-pink-200">
+            <p class="font-bold text-pink-700 mb-3">💰 Precificação</p>
+            
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="label text-gray-600">Custo (R$)</label>
+                    <input type="number" step="0.01" name="cost" value="{% if product.cost %}{{ product.cost|stringformat:'f' }}{% else %}0{% endif %}" class="input" id="costInput" oninput="calculatePrice()" placeholder="0,00">
+                    <p class="text-xs text-pink-600 mt-1">Margem: {{ profit_margin|default:5 }}%</p>
+                </div>
+                <div>
+                    <label class="label text-gray-600">Venda (R$)</label>
+                    <input type="number" step="0.01" name="price" value="{% if product.price %}{{ product.price|stringformat:'f' }}{% else %}0{% endif %}" class="input font-bold text-green-600" id="priceInput" required placeholder="0,00">
+                </div>
             </div>
-            <div>
-                <label class="label">Preço venda (R$)</label>
-                <input type="number" step="0.01" name="price" value="{{ product.price|default:'' }}" class="input" id="priceInput" required>
-</div>
+            
+            <button type="button" onclick="calculatePrice()" class="mt-2 text-sm text-pink-600 hover:text-pink-700">
+                ✨ Calcular preço automático
+            </button>
         </div>
 
+        <!-- Foto -->
         <div>
-            <label class="label">Foto</label>
-            <input type="file" name="image" accept="image/*" class="input">
-            {% if product.image %}
-            <img src="{{ product.image.url }}" class="w-20 h-20 object-cover rounded-xl mt-2">
-            {% endif %}
+            <label class="label">📷 Foto do Produto</label>
+            <label class="border-2 border-dashed border-gray-300 rounded-xl p-4 block text-center cursor-pointer hover:border-pink-400 hover:bg-pink-50 transition">
+                <input type="file" name="image" accept="image/*" class="hidden" id="imageInput" onchange="previewImage(event)">
+                <div id="imagePreview">
+                    {% if product.image %}
+                    <img src="{{ product.image.url }}" class="w-32 h-32 object-cover rounded-xl mx-auto mb-2">
+                    <p class="text-sm text-gray-500">Clique para trocar a foto</p>
+                    {% else %}
+                    <div class="text-3xl mb-2">📷</div>
+                    <p class="text-sm text-gray-500">Clique para adicionar foto</p>
+                    {% endif %}
+                </div>
+            </label>
         </div>
 
-        <div class="flex gap-2">
-            <a href="{% url 'products_list' %}" class="btn btn-secondary flex-1">Cancelar</a>
-            <button type="submit" class="btn btn-primary flex-1">Salvar</button>
+        <!-- Botões -->
+        <div class="flex gap-2 pt-2">
+            <a href="{% url 'products_list' %}" class="btn bg-gray-100 text-gray-700 flex-1 hover:bg-gray-200">✖ Cancelar</a>
+            <button type="submit" class="btn bg-primary-500 text-white flex-1 hover:bg-primary-600">✓ Salvar</button>
         </div>
     </form>
 </div>
 
 <script>
-const PROFIT_MARGIN = {{ profit_margin|default:5 }};
+const PROFIT_MARGIN = parseFloat('{{ profit_margin|default:5 }}') || 5;
 
 function calculatePrice() {
-    const cost = parseFloat(document.getElementById('costInput').value) || 0;
+    const costInput = document.getElementById('costInput');
     const priceInput = document.getElementById('priceInput');
+    const cost = parseFloat(costInput.value) || 0;
+    
+    console.log('Custo:', cost, 'Margem:', PROFIT_MARGIN);
     
     if (cost > 0) {
         const sellingPrice = cost * (1 + (PROFIT_MARGIN / 100));
         priceInput.value = sellingPrice.toFixed(2);
+        console.log('Preço calculado:', sellingPrice);
+    } else {
+        alert('Digite o custo do produto primeiro!');
+    }
+}
+
+function previewImage(event) {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('imagePreview').innerHTML = 
+                '<img src="' + e.target.result + '" class="w-32 h-32 object-cover rounded-xl mx-auto mb-2">' +
+                '<p class="text-sm text-gray-500">Clique para trocar a foto</p>';
+        };
+        reader.readAsDataURL(file);
     }
 }
 </script>
