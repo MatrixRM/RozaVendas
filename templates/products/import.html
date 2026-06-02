@@ -17,12 +17,12 @@
     {% if step == 'upload' %}
     <div class="card text-center py-8">
         <div class="text-6xl mb-4">📷</div>
-        <h3 class="font-bold text-lg mb-2">Tire uma foto da lista de produtos</h3>
-        <p class="text-gray-500 text-sm mb-6">A IA vai identificar automaticamente código, descrição, preço e quantidade</p>
+        <h3 class="font-bold text-lg mb-2">Importar produtos</h3>
+        <p class="text-gray-500 text-sm mb-6">Envie um CSV ou uma foto da lista. A IA identifica código, descrição, preço e quantidade nas imagens.</p>
         
         <form method="post" enctype="multipart/form-data" id="uploadForm">
             {% csrf_token %}
-            <input type="file" id="imageInput" name="image" accept="image/*" class="hidden" onchange="previewImage(this)">
+            <input type="file" id="imageInput" name="import_file" accept=".csv,text/csv,image/*" class="hidden" onchange="previewImage(this)">
             
             <div id="imagePreview" class="hidden mb-4">
                 <img id="previewImg" class="max-h-64 mx-auto rounded-lg border" src="" alt="Preview">
@@ -30,7 +30,7 @@
             
             <div class="space-y-3">
                 <button type="button" onclick="document.getElementById('imageInput').click()" class="w-full btn-primary py-4 text-lg">
-                    📷 Selecionar Foto
+                    Selecionar CSV ou Foto
                 </button>
                 
                 <button type="submit" id="processBtn" class="w-full btn bg-green-500 text-white py-4 text-lg hidden" disabled>
@@ -150,10 +150,19 @@
 </div>
 
 <script>
-let productsData = {% if products %}{{ products|safe }}{% else %}[]{% endif %};
+let productsData = {% if products_json %}{{ products_json|safe }}{% else %}[]{% endif %};
 
 function previewImage(input) {
     if (input.files && input.files[0]) {
+        const file = input.files[0];
+        if (file.name.toLowerCase().endsWith('.csv') || file.type === 'text/csv') {
+            document.getElementById('imagePreview').innerHTML =
+                '<div class="p-4 bg-gray-50 rounded-lg border text-sm font-bold">' + file.name + '</div>';
+            document.getElementById('imagePreview').classList.remove('hidden');
+            document.getElementById('processBtn').classList.remove('hidden');
+            document.getElementById('processBtn').disabled = false;
+            return;
+        }
         const reader = new FileReader();
         reader.onload = function(e) {
             document.getElementById('previewImg').src = e.target.result;
@@ -176,6 +185,7 @@ function updateProduct(index, field, value) {
     } else {
         productsData[index][field] = value;
     }
+    document.getElementById('productsData').value = JSON.stringify(productsData);
 }
 
 function renderProducts() {
@@ -235,7 +245,6 @@ document.getElementById('uploadForm')?.addEventListener('submit', function(e) {
     console.log('Form submitted!');
     const btn = document.getElementById('processBtn');
     if (btn) {
-        btn.innerHTML = '🔄 Processando...';
         btn.disabled = true;
     }
 });

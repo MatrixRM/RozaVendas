@@ -1,6 +1,8 @@
 import json
 import base64
 import io
+import csv
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from PIL import Image
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
@@ -10,6 +12,113 @@ from django.contrib.auth.decorators import login_required
 from .models import Product, ImportBatch
 
 
+MONEY = Decimal('0.01')
+VALID_CATEGORIES = {choice[0] for choice in Product.CATEGORIES}
+
+
+def money(value):
+    try:
+        return Decimal(str(value or 0).replace(',', '.')).quantize(MONEY, rounding=ROUND_HALF_UP)
+    except (InvalidOperation, TypeError, ValueError):
+        return Decimal('0.00')
+
+
+def positive_int(value, default=0):
+    try:
+        return max(int(value), 0)
+    except (TypeError, ValueError):
+        return default
+
+
+def normalize_category(category):
+    aliases = {
+        'calcinha': 'lingerie',
+        'sutia': 'lingerie',
+        'sutiã': 'lingerie',
+        'roupas': 'camiseta',
+        'pijama': 'lingerie',
+        'infantil': 'lingerie',
+        'outros': 'lingerie',
+        'lençol': 'lingerie',
+    }
+    category = aliases.get(category, category)
+    return category if category in VALID_CATEGORIES else 'lingerie'
+
+
+def parse_import_csv(uploaded_file):
+    raw = uploaded_file.read()
+    text = None
+    for encoding in ('utf-8-sig', 'utf-8', 'latin-1', 'cp1252'):
+        try:
+            text = raw.decode(encoding)
+            break
+        except UnicodeDecodeError:
+            continue
+
+    if text is None:
+        raise ValueError('Não foi possível ler o arquivo CSV.')
+
+    sample = text[:2048]
+    delimiter = ';' if ';' in sample else ','
+    if delimiter == ',':
+        try:
+            delimiter = csv.Sniffer().sniff(sample, delimiters=',|\t').delimiter
+        except csv.Error:
+            delimiter = ','
+
+    dict_reader = csv.DictReader(io.StringIO(text), delimiter=delimiter)
+    known_headers = {
+        'codigo', 'código', 'cod', 'code', 'sku',
+        'nome', 'descricao', 'descrição', 'produto', 'description',
+        'preco', 'preço', 'valor', 'custo',
+    }
+    fieldnames = {str(name or '').strip().lower() for name in (dict_reader.fieldnames or [])}
+    rows = list(dict_reader) if fieldnames & known_headers else []
+
+    if not rows:
+        rows = []
+        reader = csv.reader(io.StringIO(text), delimiter=delimiter)
+        for line in reader:
+            if len(line) < 3:
+                continue
+            if str(line[0]).strip().lower() in known_headers:
+                continue
+            rows.append({
+                'codigo': line[0],
+                'nome': line[1],
+                'preco': line[2],
+                'quantidade': line[3] if len(line) > 3 else 1,
+            })
+
+    def pick(row, names):
+        normalized = {str(k or '').strip().lower(): v for k, v in row.items()}
+        for name in names:
+            if name in normalized:
+                return normalized[name]
+        return ''
+
+    products = []
+    for row in rows:
+        code = str(pick(row, ['codigo', 'código', 'cod', 'code', 'sku'])).strip()
+        name = str(pick(row, ['nome', 'descricao', 'descrição', 'produto', 'description'])).strip()
+        cost = money(pick(row, ['preco', 'preço', 'valor', 'custo', 'unit', 'unitario', 'unitário']))
+        quantity = positive_int(pick(row, ['quantidade', 'qtd', 'qtde', 'qty']), default=1)
+        category = normalize_category(pick(row, ['categoria', 'category']) or infer_category(name))
+
+        if not code or not name or cost <= 0 or quantity <= 0:
+            continue
+
+        products.append({
+            'codigo': code,
+            'nome': name.upper(),
+            'preco': float(cost),
+            'quantidade': quantity,
+            'categoria': category,
+        })
+
+    return products
+
+
 @login_required
 def products_list(request):
     products = Product.objects.filter(active=True).order_by('name')
@@ -17,7 +126,8 @@ def products_list(request):
     category = request.GET.get('category', '')
     
     if search:
-        products = products.filter(name__icontains=search)
+        from django.db.models import Q
+        products = products.filter(Q(name__icontains=search) | Q(supplier_code__icontains=search))
     if category:
         products = products.filter(category=category)
     
@@ -43,20 +153,30 @@ def product_new(request):
     profit_margin = float(Settings.get('profit_margin', settings.PROFIT_MARGIN * 100))
     
     if request.method == 'POST':
-        cost = float(request.POST.get('cost') or 0)
-        price = float(request.POST.get('price') or 0)
+        cost = money(request.POST.get('cost'))
+        price = money(request.POST.get('price'))
+        stock = positive_int(request.POST.get('stock'))
         
         if price == 0 and cost > 0:
-            price = cost * (1 + float(Settings.get('profit_margin', settings.PROFIT_MARGIN * 100)) / 100)
+            price = money(cost * (Decimal(str(Settings.get('profit_margin', settings.PROFIT_MARGIN * 100))) / Decimal('100') + Decimal('1')))
+
+        if not request.POST.get('name'):
+            messages.error(request, 'Informe o nome do produto.')
+            return redirect('product_new')
+
+        if price <= 0:
+            messages.error(request, 'Informe um preço de venda maior que zero.')
+            return redirect('product_new')
         
         Product.objects.create(
             name=request.POST.get('name'),
-            category=request.POST.get('category'),
+            supplier_code=request.POST.get('supplier_code') or None,
+            category=normalize_category(request.POST.get('category')),
             size=request.POST.get('size') or None,
             color=request.POST.get('color') or None,
             cost=cost,
             price=price,
-            stock=request.POST.get('stock') or 0,
+            stock=stock,
             image=request.FILES.get('image'),
         )
         messages.success(request, 'Produto criado com sucesso!')
@@ -78,19 +198,29 @@ def product_edit(request, pk):
     profit_margin = float(Settings.get('profit_margin', settings.PROFIT_MARGIN * 100))
     
     if request.method == 'POST':
-        cost = float(request.POST.get('cost') or 0)
-        price = float(request.POST.get('price') or 0)
+        cost = money(request.POST.get('cost'))
+        price = money(request.POST.get('price'))
+        stock = positive_int(request.POST.get('stock'))
         
         if price == 0 and cost > 0:
-            price = cost * (1 + float(Settings.get('profit_margin', settings.PROFIT_MARGIN * 100)) / 100)
+            price = money(cost * (Decimal(str(Settings.get('profit_margin', settings.PROFIT_MARGIN * 100))) / Decimal('100') + Decimal('1')))
+
+        if not request.POST.get('name'):
+            messages.error(request, 'Informe o nome do produto.')
+            return redirect('product_edit', pk=pk)
+
+        if price <= 0:
+            messages.error(request, 'Informe um preço de venda maior que zero.')
+            return redirect('product_edit', pk=pk)
         
         product.name = request.POST.get('name')
-        product.category = request.POST.get('category')
+        product.supplier_code = request.POST.get('supplier_code') or None
+        product.category = normalize_category(request.POST.get('category'))
         product.size = request.POST.get('size') or None
         product.color = request.POST.get('color') or None
         product.cost = cost
         product.price = price
-        product.stock = request.POST.get('stock') or 0
+        product.stock = stock
         if request.FILES.get('image'):
             product.image = request.FILES.get('image')
         product.save()
@@ -127,6 +257,7 @@ def api_products(request):
     data = [{
         'id': str(p.id),
         'name': p.name,
+        'code': p.supplier_code,
         'category': p.get_category_display(),
         'size': p.size,
         'color': p.color,
@@ -165,8 +296,8 @@ def calculate_selling_price(cost_price):
     from django.conf import settings
     from core.models import Settings
     
-    margin = float(Settings.get('profit_margin', settings.PROFIT_MARGIN * 100)) / 100
-    return cost_price * (1 + margin)
+    margin = Decimal(str(Settings.get('profit_margin', settings.PROFIT_MARGIN * 100))) / Decimal('100')
+    return money(money(cost_price) * (Decimal('1') + margin))
 
 
 def parse_product_list(text):
@@ -244,11 +375,41 @@ def parse_product_list(text):
 @login_required
 def product_import(request):
     if request.method == 'POST':
-        image = request.FILES.get('image')
+        import_file = request.FILES.get('import_file') or request.FILES.get('image')
+        image = import_file
         
-        if not image:
-            messages.error(request, 'Selecione uma imagem')
+        if not import_file:
+            messages.error(request, 'Selecione um arquivo CSV ou uma imagem')
             return redirect('product_import')
+
+        filename = (import_file.name or '').lower()
+        if filename.endswith('.csv') or import_file.content_type in ['text/csv', 'application/vnd.ms-excel']:
+            try:
+                products = parse_import_csv(import_file)
+            except ValueError as exc:
+                messages.error(request, str(exc))
+                return redirect('product_import')
+
+            if not products:
+                messages.error(request, 'Nenhum produto válido encontrado no CSV.')
+                return redirect('product_import')
+
+            total_value = sum(p['preco'] * p.get('quantidade', 1) for p in products)
+            batch = ImportBatch.objects.create(
+                total_products=len(products),
+                total_value=total_value,
+                raw_ocr_text=f'CSV importado: {import_file.name}',
+                created_by=request.user
+            )
+
+            return render(request, 'products/import.html', {
+                'step': 'preview',
+                'products': products,
+                'products_json': json.dumps(products),
+                'total_value': total_value,
+                'batch_id': str(batch.id),
+                'warning': None
+            })
         
         # Ler imagem e converter para base64
         from PIL import Image
@@ -428,14 +589,12 @@ Retorne APENAS texto puro, sem markdown, sem explicações."""
                     
                     # Palavras-chave por categoria
                     keywords = {
-                        'calcinha': ['TANGA', 'CALCINHA', 'FIO DENTAL', 'TANGUE', 'CARDIGUE'],
+                        'lingerie': ['TANGA', 'CALCINHA', 'FIO DENTAL', 'TANGUE', 'CARDIGUE', 'SUTIA', 'SUTIAN', 'BRA', 'TOP', 'BUSTIE', 'SOUTIEN', 'PIJAMA', 'CAMISOLA'],
                         'cueca': ['CUECA', 'CALCAO', 'SLIP', 'BOXER'],
-                        'sutia': ['SUTIA', 'SUTIAN', 'BRA', 'TOP', 'BUSTIE', 'SOUTIEN'],
                         'meia': ['MEIA', 'MEIAS'],
                         'moletom': ['MOLETOM', 'MOLETIN', 'JOGGER'],
-                        'roupas': ['CALCA', 'BERMUDA', 'SHORT', 'SAIA', 'JEANS', 'VESTIDO', 'BLUSA'],
-                        'pijama': ['PIJAMA', 'CAMISOLA'],
-                        'infantil': ['INFANTIL', 'CRIANCA', 'MENINA', 'MENINO', 'KID'],
+                        'legging': ['CALCA', 'LEGGING'],
+                        'camiseta': ['BERMUDA', 'SHORT', 'SAIA', 'JEANS', 'VESTIDO', 'BLUSA', 'CAMISETA', 'REGATA'],
                     }
                     
                     for cat, kws in keywords.items():
@@ -443,7 +602,7 @@ Retorne APENAS texto puro, sem markdown, sem explicações."""
                             if kw in name:
                                 return cat
                     
-                    return product.get('categoria', 'outros') or 'outros'
+                    return normalize_category(product.get('categoria', 'lingerie'))
                 
                 for p in products:
                     p['categoria'] = fix_category(p)
@@ -506,25 +665,31 @@ def product_import_confirm(request):
         total_value = 0
         
         for p in products:
-            cost_price = float(p.get('preco', 0))
+            cost_price = money(p.get('preco', 0))
+            quantity = positive_int(p.get('quantidade', 1), default=1)
+            category = normalize_category(p.get('categoria', 'lingerie'))
+
+            if cost_price <= 0 or quantity <= 0:
+                continue
             selling_price = calculate_selling_price(cost_price)
             
             # Verificar se produto com mesmo código já existe
             existing = Product.objects.filter(supplier_code=p.get('codigo')).first()
             
             if existing:
-                existing.stock += p.get('quantidade', 1)
+                existing.stock += quantity
                 existing.cost = cost_price
                 existing.price = selling_price
+                existing.category = category
                 existing.save()
                 updated_count += 1
             else:
                 product = Product.objects.create(
                     name=p.get('nome', 'Produto'),
-                    category=p.get('categoria', 'lingerie'),
+                    category=category,
                     cost=cost_price,
                     price=selling_price,
-                    stock=p.get('quantidade', 1),
+                    stock=quantity,
                     supplier_code=p.get('codigo'),
                     original_name=p.get('nome'),
                     ai_imported=True,
@@ -533,7 +698,7 @@ def product_import_confirm(request):
                 )
                 created_count += 1
             
-            total_value += cost_price * p.get('quantidade', 1)
+            total_value += cost_price * quantity
         
         messages.success(request, f'{created_count} produtos criados, {updated_count} atualizados!')
         

@@ -28,7 +28,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'products',
     'clients',
-    'sales',
+    'sales.apps.SalesConfig',
     'finance',
     'core',
     'chat',

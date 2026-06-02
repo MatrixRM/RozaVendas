@@ -5,7 +5,7 @@
     <h2 class="text-2xl font-bold text-center">🛒 Nova Venda</h2>
 
     <!-- Busca de Cliente -->
-    <div class="card">
+    <div class="card hidden">
         <div class="flex items-center gap-2 mb-3">
             <span class="text-xl">👤</span>
             <span class="font-bold text-gray-800">Buscar Cliente</span>
@@ -20,6 +20,53 @@
         {% if clients|length == 0 %}
         <p class="text-center text-gray-400 mt-2 text-sm">Nenhum cliente cadastrado</p>
         {% endif %}
+    </div>
+
+    <div class="card">
+        <div class="flex items-center justify-between gap-3 mb-3">
+            <div>
+                <p class="font-bold text-gray-800">Cliente</p>
+                <p class="text-xs text-gray-500">Busque pelo nome ou WhatsApp</p>
+            </div>
+            <a href="{% url 'client_new' %}" class="bg-primary-500 hover:bg-primary-600 text-white px-3 py-2 rounded-lg text-sm font-bold whitespace-nowrap">
+                + Novo
+            </a>
+        </div>
+
+        <input type="hidden" id="selectedClientId" value="">
+        <input type="text" id="clientQuickSearch" class="w-full border border-gray-200 rounded-lg px-3 py-3 text-base" placeholder="Buscar cliente..." oninput="filterClientCards()" autocomplete="off">
+
+        <div id="selectedClientCard" class="hidden mt-3 bg-green-50 border border-green-200 rounded-lg p-3">
+            <div class="flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                    <p id="selectedClientName" class="font-bold text-green-800 truncate"></p>
+                    <p id="selectedClientPhone" class="text-sm text-green-700"></p>
+                </div>
+                <button type="button" onclick="clearClient()" class="text-sm text-green-700 font-bold px-2 py-1 rounded hover:bg-green-100">Trocar</button>
+            </div>
+        </div>
+
+        <div id="clientCardResults" class="mt-3 space-y-2 max-h-56 overflow-y-auto">
+            {% for client in clients %}
+            <button type="button"
+                    onclick="selectClientCard(this)"
+                    class="client-card-option w-full text-left border border-gray-100 rounded-lg p-3 hover:border-primary-500 hover:bg-primary-50 transition"
+                    data-id="{{ client.id }}"
+                    data-name="{{ client.name|lower }}"
+                    data-display-name="{{ client.name|escapejs }}"
+                    data-whatsapp="{{ client.whatsapp }}">
+                <span class="block font-bold text-gray-800 truncate">{{ client.name }}</span>
+                <span class="block text-sm text-gray-500">{{ client.whatsapp }}</span>
+                {% if client.total_due > 0 %}
+                <span class="inline-block mt-1 text-xs bg-red-50 text-red-600 px-2 py-0.5 rounded">Devendo R$ {{ client.total_due|floatformat:2 }}</span>
+                {% endif %}
+            </button>
+            {% empty %}
+            <p class="text-center text-gray-400 py-4 text-sm">Nenhum cliente cadastrado</p>
+            {% endfor %}
+        </div>
+
+        <p id="clientCardEmptyState" class="hidden text-center text-gray-400 py-4 text-sm">Nenhum cliente encontrado</p>
     </div>
 
     <!-- Produto selecionado -->
@@ -47,9 +94,13 @@
         
         <div class="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto" id="productsGrid">
             {% for product in products %}
-            <button onclick="selectProduct('{{ product.id }}', '{{ product.name }}', {{ product.price }})" 
+            <button onclick="selectProduct(this)" 
                     class="product-btn border-2 border-gray-100 rounded-xl p-2 text-left hover:border-primary-500 hover:bg-primary-50 transition-all"
+                    data-id="{{ product.id }}"
                     data-name="{{ product.name|lower }}"
+                    data-display-name="{{ product.name|escapejs }}"
+                    data-price="{{ product.price|stringformat:'f' }}"
+                    data-stock="{{ product.stock }}"
                     data-category="{{ product.get_category_display|lower }}">
                 <p class="font-bold text-xs line-clamp-2">{{ product.name }}</p>
                 <p class="text-xs text-gray-400">{{ product.get_category_display }} • {{ product.size }}</p>
@@ -146,10 +197,18 @@ document.addEventListener('DOMContentLoaded', function() {
     setPaymentType('cash');
 });
 
-function selectProduct(id, name, price) {
-    selectedProduct = {id, name, price, quantity: 1};
+function selectProduct(button) {
+    const id = button.dataset.id;
+    const name = button.dataset.displayName;
+    const price = parseFloat(button.dataset.price.replace(',', '.')) || 0;
+    const stock = parseInt(button.dataset.stock) || 0;
+    selectedProduct = {id, name, price, stock, quantity: 1};
     const existing = cart.find(p => p.id === id);
     if (existing) {
+        if (existing.quantity >= existing.stock) {
+            showToast('Estoque insuficiente para este produto.', 'warning');
+            return;
+        }
         existing.quantity++;
         selectedProduct = null;
     } else {
@@ -200,6 +259,10 @@ function updateCart() {
 }
 
 function updateQuantity(idx, delta) {
+    if (delta > 0 && cart[idx].quantity >= cart[idx].stock) {
+        showToast('Estoque insuficiente para este produto.', 'warning');
+        return;
+    }
     cart[idx].quantity += delta;
     if (cart[idx].quantity <= 0) {
         cart.splice(idx, 1);
@@ -210,6 +273,46 @@ function updateQuantity(idx, delta) {
 function removeItem(idx) {
     cart.splice(idx, 1);
     updateCart();
+}
+
+function selectClientCard(button) {
+    const id = button.dataset.id;
+    const name = button.dataset.displayName;
+    const whatsapp = button.dataset.whatsapp || '';
+
+    document.getElementById('selectedClientId').value = id;
+    document.getElementById('selectedClientName').textContent = name;
+    document.getElementById('selectedClientPhone').textContent = whatsapp;
+    document.getElementById('selectedClientCard').classList.remove('hidden');
+    document.getElementById('clientCardResults').classList.add('hidden');
+    document.getElementById('clientCardEmptyState').classList.add('hidden');
+    document.getElementById('clientQuickSearch').value = '';
+    showToast('Cliente selecionado!', 'success');
+}
+
+function clearClient() {
+    document.getElementById('selectedClientId').value = '';
+    document.getElementById('selectedClientCard').classList.add('hidden');
+    document.getElementById('clientCardResults').classList.remove('hidden');
+    document.getElementById('clientQuickSearch').focus();
+    filterClientCards();
+}
+
+function filterClientCards() {
+    const search = document.getElementById('clientQuickSearch').value.toLowerCase().trim();
+    const cards = document.querySelectorAll('.client-card-option');
+    let visible = 0;
+
+    cards.forEach(card => {
+        const name = card.dataset.name || '';
+        const whatsapp = card.dataset.whatsapp || '';
+        const match = !search || name.includes(search) || whatsapp.includes(search);
+        card.style.display = match ? '' : 'none';
+        if (match) visible++;
+    });
+
+    document.getElementById('clientCardResults').classList.toggle('hidden', visible === 0);
+    document.getElementById('clientCardEmptyState').classList.toggle('hidden', visible > 0);
 }
 
 // Filter functions
@@ -324,10 +427,9 @@ function updatePayment() {
 function finishSale() {
     const btn = document.getElementById('finishBtn');
     btn.disabled = true;
-    btn.innerHTML = '⏳ Processando...';
     btn.classList.add('opacity-50');
     
-    const clientId = document.getElementById('clientSelect').value;
+    const clientId = document.getElementById('selectedClientId').value;
     
     if (!clientId) {
         btn.disabled = false;
@@ -347,7 +449,7 @@ function finishSale() {
         body: JSON.stringify({
             client_id: clientId,
             products: cart.map(p => ({id: p.id, name: p.name, price: p.price, cost: 0, quantity: p.quantity})),
-            payment_type: paymentLabel,
+            payment_type: paymentType,
             paid_amount: paid,
             installment: installment
         })

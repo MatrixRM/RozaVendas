@@ -8,7 +8,7 @@ from django.conf import settings
 from clients.models import Client
 from core.models import WhatsAppMessage, WhatsAppTemplate
 from sales.models import Sale
-from core.whatsapp_bot import send_whatsapp_message
+from core.whatsapp_bot import sanitize_client_message, send_whatsapp_message
 
 
 def build_collection_message(client):
@@ -22,9 +22,9 @@ def build_collection_message(client):
     ).order_by('-created_at')
     
     if not sales:
-        return f"Olá {name}! Você está em dia conosco! 😊"
+        return f"Ola {name}! Voce esta em dia conosco."
     
-    message = f"Olá {name}!\n\n📋 Resumo das suas compras pendentes:\n\n"
+    message = f"Ola {name}!\n\nResumo das suas compras pendentes:\n\n"
     
     total_pending = 0
     for sale in sales:
@@ -32,7 +32,7 @@ def build_collection_message(client):
         total_pending += pending
         date = sale.created_at.strftime('%d/%m/%Y')
         
-        message += f"• Compra {date}: R$ {sale.total:.2f} | Pago: R$ {sale.paid_amount:.2f} | Pendente: R$ {pending:.2f}\n"
+        message += f"- Compra {date}: R$ {sale.total:.2f} | Pago: R$ {sale.paid_amount:.2f} | Pendente: R$ {pending:.2f}\n"
         
         items = sale.get_products_list()
         if items:
@@ -41,11 +41,11 @@ def build_collection_message(client):
         
         if sale.status == 'overdue':
             days = sale.days_overdue
-            message += f"  ⚠️ ATRASADO há {days} dias\n"
+            message += f"  Atrasado ha {days} dias\n"
         
         message += "\n"
     
-    message += f"💰 Total pendente: R$ {total_pending:.2f}\n\n"
+    message += f"Total pendente: R$ {total_pending:.2f}\n\n"
     message += "Quando puder, nos mande uma mensagem para combinar o pagamento!"
     
     return message
@@ -55,27 +55,27 @@ def build_receipt_message(client, sale=None):
     """Constrói mensagem de recibo detalhada"""
     if sale:
         items = sale.get_products_list()
-        items_text = "\n".join([f"  • {i.get('quantity', 1)}x {i.get('name', 'Item')} - R$ {i.get('subtotal', 0):.2f}" for i in items]) if items else "  Produtos diversos"
+        items_text = "\n".join([f"- {i.get('quantity', 1)}x {i.get('name', 'Item')} - R$ {i.get('subtotal', 0):.2f}" for i in items]) if items else "Produtos diversos"
         
-        message = f"🧾 RECIBO - Compra {sale.created_at.strftime('%d/%m/%Y')}\n\n"
+        message = f"Recibo - Compra {sale.created_at.strftime('%d/%m/%Y')}\n\n"
         message += f"{items_text}\n\n"
         message += f"Total: R$ {sale.total:.2f}\n"
         message += f"Pago: R$ {sale.paid_amount:.2f}\n"
         message += f"Troco: R$ {(float(sale.paid_amount) - float(sale.total)):.2f}\n\n"
-        message += f"Obrigado pela preferência, {client.name.split()[0]}! 😊"
+        message += f"Obrigado pela preferencia, {client.name.split()[0]}!"
         return message
     
     all_paid = Sale.objects.filter(client=client, status='paid').order_by('-created_at')[:5]
     if not all_paid:
         return f"Ola {client.name.split()[0]}! Obrigado pela preferencia!"
     
-    message = f"Ola {client.name.split()[0]}! Obrigado pela preferencia! 😊\n\n"
+    message = f"Ola {client.name.split()[0]}! Obrigado pela preferencia!\n\n"
     message += "Suas compras quitadas:\n\n"
     
     total_paid = 0
     for s in all_paid:
         total_paid += float(s.total)
-        message += f"• {s.created_at.strftime('%d/%m')}: R$ {s.total:.2f} ✅\n"
+        message += f"- {s.created_at.strftime('%d/%m')}: R$ {s.total:.2f}\n"
     
     message += f"\nTotal: R$ {total_paid:.2f}"
     message += "\n\n esperamos voce novamente em breve!"
@@ -98,6 +98,7 @@ TEMPLATES = {
 
 def format_whatsapp_link(whatsapp, message):
     phone = ''.join(filter(str.isdigit, whatsapp))
+    message = sanitize_client_message(message)
     message = message.replace('\n', '%0A')
     return f"https://wa.me/{phone}?text={message}"
 
